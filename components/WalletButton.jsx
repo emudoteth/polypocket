@@ -1,3 +1,4 @@
+/** Wallet connect button — wraps hooks/useWallet.js */
 import { useWallet } from '../hooks/useWallet';
 
 const POLYGON_CHAIN_ID = 137;
