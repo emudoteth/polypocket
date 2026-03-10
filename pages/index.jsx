@@ -340,6 +340,7 @@ const statsBar = {
   background:'white', borderBottom:'1px solid var(--border)',
   display:'flex', overflowX:'auto', scrollbarWidth:'none',
   padding:'0 0.75rem',
+  justifyContent:'center',
 };
 const searchStyle = {
   width:'100%', padding:'0.7rem 1rem 0.7rem 2.4rem',
