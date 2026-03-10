@@ -143,7 +143,6 @@ export default function Home() {
         {/* Regular stats */}
         {[
           [stats.loaded, 'Markets Loaded'],
-          ['14', 'Categories'],
           ['Polygon', 'For Now'],
         ].map(([n, l]) => (
           <div key={l} style={{ textAlign:'center', padding:'0.85rem 1rem', borderRight:'1px solid var(--border)' }}>
@@ -152,6 +151,13 @@ export default function Home() {
             <div style={{ fontSize:'0.68rem', color:'var(--muted)', fontWeight:500, whiteSpace:'nowrap' }}>{l}</div>
           </div>
         ))}
+        {/* Categories — emoji grid */}
+        <div style={{ textAlign:'center', padding:'0.85rem 1rem', borderRight:'1px solid var(--border)' }}>
+          <div style={{ fontSize:'0.9rem', lineHeight:1.6, maxWidth:120, margin:'0 auto' }}>
+            🗳️🏆🔮📈🦁🌐💻🎭💰🌦️🎬🏈🏀🇺🇸
+          </div>
+          <div style={{ fontSize:'0.68rem', color:'var(--muted)', fontWeight:500, whiteSpace:'nowrap' }}>14 Categories</div>
+        </div>
         {/* API Latency — color-coded pulse */}
         <div style={{ textAlign:'center', padding:'0.85rem 1rem', borderRight:'1px solid var(--border)' }}>
           <div style={{
