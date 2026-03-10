@@ -84,12 +84,16 @@ export default function Home() {
         <title>PolyPocket — The whole prediction market, in your pocket</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content="#7c3aed" />
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🫧</text></svg>" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="icon" type="image/png" href="/favicon.png" />
       </Head>
 
       {/* NAV */}
       <nav style={navStyle}>
-        <a href="#" style={logoStyle}>🫧 PolyPocket</a>
+        <a href="#" style={logoStyle}>
+            <img src="/logo.png" alt="PolyPocket" style={{ width:32, height:32, borderRadius:8, objectFit:'cover', flexShrink:0 }} />
+            PolyPocket
+          </a>
         <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
           <span style={{ fontSize:'0.72rem', fontWeight:600, color:'var(--green)',
             display:'flex', alignItems:'center', gap:4 }}>
