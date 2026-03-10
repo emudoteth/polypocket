@@ -36,3 +36,13 @@ body {
 @keyframes fadeIn { from{opacity:0} to{opacity:1} }
 
 /* v3.1 */
+
+/* Hero deco images — hidden on mobile, visible on wider screens */
+.hero-deco {
+  display: none;
+}
+@media (min-width: 640px) {
+  .hero-deco {
+    display: block;
+  }
+}
