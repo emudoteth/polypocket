@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PolyPocket — The whole prediction market, in your pocket</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🫧</text></svg>" />
+  <style>
+    :root {
+      --pink:    #e91e8c;
+      --purple:  #7c3aed;
+      --lavender:#c4b5fd;
+      --lilac:   #ede9fe;
+      --bg:      #faf5ff;
+      --card:    #ffffff;
+      --text:    #1e1b4b;
+      --muted:   #6b7280;
+      --green:   #059669;
+      --red:     #dc2626;
+      --border:  #e5e7eb;
+      --shadow:  0 4px 24px rgba(124,58,237,0.10);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ─── NAV ─── */
+    nav {
+      background: white;
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-logo {
+      font-size: 1.25rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-decoration: none;
+    }
+    .nav-links { display: flex; gap: 1.5rem; align-items: center; }
+    .nav-links a {
+      font-size: 0.85rem;
+      color: var(--muted);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color .2s;
+    }
+    .nav-links a:hover { color: var(--purple); }
+    .nav-gh {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.8rem;
+      color: white !important;
+      background: var(--purple);
+      padding: 0.35rem 0.9rem;
+      border-radius: 99px;
+      font-weight: 600;
+    }
+    .nav-gh:hover { background: var(--pink) !important; color: white !important; }
+
+    /* ─── HERO ─── */
+    .hero {
+      background: linear-gradient(160deg, #fdf4ff 0%, #ede9fe 50%, #fce7f3 100%);
+      padding: 4rem 2rem 3rem;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -80px; left: 50%;
+      transform: translateX(-50%);
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(124,58,237,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: white;
+      border: 1.5px solid var(--lavender);
+      color: var(--purple);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.3rem 0.9rem;
+      border-radius: 99px;
+      margin-bottom: 1.5rem;
+    }
+    .hero h1 {
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      font-weight: 900;
+      line-height: 1.1;
+      background: linear-gradient(135deg, var(--pink) 0%, var(--purple) 60%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 1rem;
+      letter-spacing: -0.02em;
+    }
+    .hero-sub {
+      font-size: 1.15rem;
+      color: var(--muted);
+      max-width: 560px;
+      margin: 0 auto 2rem;
+      line-height: 1.6;
+    }
+    .hero-sub strong { color: var(--purple); }
+    .hero-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      color: white;
+      font-weight: 700;
+      font-size: 0.9rem;
+      padding: 0.7rem 1.8rem;
+      border-radius: 99px;
+      text-decoration: none;
+      transition: opacity .2s, transform .2s;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-ghost {
+      background: white;
+      color: var(--purple);
+      font-weight: 700;
+      font-size: 0.9rem;
+      padding: 0.7rem 1.8rem;
+      border-radius: 99px;
+      text-decoration: none;
+      border: 1.5px solid var(--lavender);
+      transition: border-color .2s, background .2s;
+    }
+    .btn-ghost:hover { border-color: var(--purple); background: var(--lilac); }
+    .hero-emoji { font-size: 3rem; display: block; margin-bottom: 0.5rem; }
+
+    /* ─── STATS STRIP ─── */
+    .stats-strip {
+      background: white;
+      border-bottom: 1px solid var(--border);
+      padding: 1.5rem 2rem;
+      display: flex;
+      gap: 2rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .stat-item { text-align: center; }
+    .stat-num {
+      font-size: 1.5rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .stat-label { font-size: 0.75rem; color: var(--muted); font-weight: 500; margin-top: 0.1rem; }
+
+    /* ─── MAIN CONTENT ─── */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem;
+    }
+
+    /* ─── SECTION HEADER ─── */
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .section-tag {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--purple);
+      background: var(--lilac);
+      padding: 0.2rem 0.6rem;
+      border-radius: 99px;
+    }
+    .api-ref {
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-family: 'SF Mono', monospace;
+    }
+    .api-ref a { color: var(--purple); text-decoration: none; }
+    .api-ref a:hover { text-decoration: underline; }
+
+    /* ─── SEARCH ─── */
+    .search-bar {
+      width: 100%;
+      padding: 0.75rem 1.1rem;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      font-size: 0.9rem;
+      background: white;
+      color: var(--text);
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+      margin-bottom: 1.5rem;
+    }
+    .search-bar:focus {
+      border-color: var(--purple);
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
+    }
+
+    /* ─── MARKET GRID ─── */
+    .market-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1rem;
+    }
+
+    .market-card {
+      background: white;
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      padding: 1.25rem;
+      box-shadow: var(--shadow);
+      transition: transform .2s, box-shadow .2s, border-color .2s;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+    .market-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 32px rgba(124,58,237,0.15);
+      border-color: var(--lavender);
+    }
+
+    .market-header {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+    .market-img {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: var(--lilac);
+    }
+    .market-img-placeholder {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--lilac), #fce7f3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+    .market-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      line-height: 1.4;
+      color: var(--text);
+    }
+
+    .market-outcomes {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.9rem;
+    }
+    .outcome-pill {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.3rem 0.65rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+    .outcome-label { color: var(--muted); }
+    .outcome-price { color: var(--text); }
+    .outcome-price.yes-high { color: var(--green); }
+    .outcome-price.no-high  { color: var(--red); }
+    .outcome-bar {
+      width: 100%;
+      height: 6px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 0.9rem;
+    }
+    .outcome-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--pink), var(--purple));
+      border-radius: 99px;
+      transition: width 0.5s ease;
+    }
+
+    .market-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .market-volume { font-weight: 600; }
+    .market-status {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .market-category {
+      background: var(--lilac);
+      color: var(--purple);
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* ─── SKELETON ─── */
+    .skeleton-card {
+      background: white;
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      padding: 1.25rem;
+      box-shadow: var(--shadow);
+    }
+    .skeleton-line {
+      background: linear-gradient(90deg, #f0e8ff 25%, #e4d8ff 50%, #f0e8ff 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 8px;
+      margin-bottom: 0.6rem;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ─── ORDERBOOK PANEL ─── */
+    .orderbook-panel {
+      background: white;
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+      margin-top: 2rem;
+    }
+    .orderbook-title {
+      font-size: 0.95rem;
+      font-weight: 800;
+      margin-bottom: 0.4rem;
+    }
+    .orderbook-market-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 1.25rem;
+    }
+    .orderbook-cols {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .ob-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+    .ob-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      padding: 0.25rem 0;
+      border-bottom: 1px solid #fafafa;
+      position: relative;
+    }
+    .ob-row .ob-bg {
+      position: absolute;
+      top: 0; bottom: 0; right: 0;
+      border-radius: 4px;
+      opacity: 0.12;
+    }
+    .ob-ask .ob-bg { background: var(--red); }
+    .ob-bid .ob-bg { background: var(--green); }
+    .ob-price-ask { color: var(--red); font-weight: 700; position: relative; z-index: 1; }
+    .ob-price-bid { color: var(--green); font-weight: 700; position: relative; z-index: 1; }
+    .ob-size { color: var(--muted); position: relative; z-index: 1; }
+    .ob-empty { color: var(--muted); font-size: 0.8rem; text-align: center; padding: 1rem 0; }
+
+    /* ─── API DOC STRIP ─── */
+    .api-strip {
+      background: linear-gradient(135deg, #1e1b4b, #312e81);
+      border-radius: 16px;
+      padding: 2rem;
+      margin-top: 2.5rem;
+      color: white;
+    }
+    .api-strip h2 {
+      font-size: 1.1rem;
+      font-weight: 800;
+      margin-bottom: 0.3rem;
+    }
+    .api-strip p {
+      font-size: 0.85rem;
+      color: var(--lavender);
+      margin-bottom: 1.25rem;
+    }
+    .api-endpoint-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+    .api-endpoint {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 0.65rem 1rem;
+    }
+    .api-method {
+      font-size: 0.65rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: #a5b4fc;
+      background: rgba(165,180,252,0.15);
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      white-space: nowrap;
+      margin-top: 1px;
+    }
+    .api-path {
+      font-size: 0.8rem;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      color: white;
+      font-weight: 600;
+    }
+    .api-desc { font-size: 0.75rem; color: var(--lavender); }
+    .api-endpoint-docs {
+      margin-top: 0.25rem;
+    }
+    .api-endpoint-docs a {
+      font-size: 0.7rem;
+      color: #c4b5fd;
+      text-decoration: none;
+    }
+    .api-endpoint-docs a:hover { text-decoration: underline; }
+
+    /* ─── FOOTER ─── */
+    footer {
+      text-align: center;
+      padding: 3rem 2rem 2rem;
+      border-top: 1px solid var(--border);
+      margin-top: 3rem;
+      background: white;
+    }
+    footer .footer-logo {
+      font-size: 1.1rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+    footer p {
+      font-size: 0.8rem;
+      color: var(--muted);
+      max-width: 480px;
+      margin: 0 auto 1rem;
+      line-height: 1.6;
+    }
+    footer .footer-links { display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap; }
+    footer .footer-links a {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    footer .footer-links a:hover { color: var(--purple); }
+
+    /* ─── FILTER TABS ─── */
+    .filter-tabs {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.25rem;
+    }
+    .filter-tab {
+      padding: 0.35rem 0.85rem;
+      border-radius: 99px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border: 1.5px solid var(--border);
+      background: white;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .filter-tab.active {
+      background: var(--purple);
+      border-color: var(--purple);
+      color: white;
+    }
+    .filter-tab:hover:not(.active) {
+      border-color: var(--purple);
+      color: var(--purple);
+    }
+
+    /* ─── ERROR ─── */
+    .error-block {
+      background: #fef2f2;
+      border: 1.5px solid #fecaca;
+      border-radius: 12px;
+      padding: 1.5rem;
+      text-align: center;
+      color: var(--red);
+      font-size: 0.88rem;
+    }
+    .refresh-btn {
+      margin-top: 1rem;
+      display: inline-block;
+    }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 640px) {
+      .nav-links .nav-gh { display: flex; }
+      .nav-links a:not(.nav-gh) { display: none; }
+      .hero { padding: 2.5rem 1rem 2rem; }
+      .orderbook-cols { grid-template-columns: 1fr; }
+      .stats-strip { gap: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-logo" href="#">🫧 PolyPocket</a>
+  <div class="nav-links">
+    <a href="#markets">Markets</a>
+    <a href="#how-it-works">How It Works</a>
+    <a href="https://github.com/emudoteth/polypocket" target="_blank" rel="noopener" class="nav-gh">
+      ★ GitHub
+    </a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <span class="hero-emoji">🫧</span>
+  <div class="hero-badge">✨ Live Polymarket Data · No API Key Required</div>
+  <h1>PolyPocket</h1>
+  <p class="hero-sub">
+    The whole prediction market, <strong>in your pocket.</strong><br/>
+    Live markets, real-time prices, and order book depth — powered by the <strong>Polymarket CLOB API</strong>.
+  </p>
+  <div class="hero-actions">
+    <a href="#markets" class="btn-primary">Browse Live Markets →</a>
+    <a href="https://github.com/emudoteth/polypocket" target="_blank" rel="noopener" class="btn-ghost">View Source</a>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-strip" id="stats-strip">
+  <div class="stat-item">
+    <div class="stat-num" id="stat-markets">—</div>
+    <div class="stat-label">Active Markets</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num" id="stat-volume">—</div>
+    <div class="stat-label">24h Volume</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num" id="stat-categories">—</div>
+    <div class="stat-label">Categories</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">Polygon</div>
+    <div class="stat-label">Network</div>
+  </div>
+</div>
+
+<!-- MARKETS -->
+<div class="container">
+  <section id="markets">
+    <div class="section-header">
+      <span class="section-title">🔴 Live Markets</span>
+      <span class="api-ref">
+        via <a href="https://docs.polymarket.com/api-reference/events/list-events" target="_blank">gamma-api.polymarket.com/markets</a>
+        · <span class="section-tag">Public · No Auth</span>
+      </span>
+    </div>
+
+    <input
+      class="search-bar"
+      id="search"
+      type="text"
+      placeholder="🔍  Search markets — try 'election', 'crypto', 'sports'..."
+    />
+
+    <div class="filter-tabs" id="filter-tabs">
+      <button class="filter-tab active" data-filter="all">All</button>
+    </div>
+
+    <div class="market-grid" id="market-grid">
+      <!-- skeletons -->
+      <div class="skeleton-card">
+        <div class="skeleton-line" style="height:44px;width:44px;border-radius:10px;margin-bottom:12px;"></div>
+        <div class="skeleton-line" style="height:14px;width:90%;"></div>
+        <div class="skeleton-line" style="height:14px;width:60%;"></div>
+        <div class="skeleton-line" style="height:8px;width:100%;margin-top:12px;"></div>
+      </div>
+      <div class="skeleton-card">
+        <div class="skeleton-line" style="height:44px;width:44px;border-radius:10px;margin-bottom:12px;"></div>
+        <div class="skeleton-line" style="height:14px;width:85%;"></div>
+        <div class="skeleton-line" style="height:14px;width:55%;"></div>
+        <div class="skeleton-line" style="height:8px;width:100%;margin-top:12px;"></div>
+      </div>
+      <div class="skeleton-card">
+        <div class="skeleton-line" style="height:44px;width:44px;border-radius:10px;margin-bottom:12px;"></div>
+        <div class="skeleton-line" style="height:14px;width:80%;"></div>
+        <div class="skeleton-line" style="height:14px;width:65%;"></div>
+        <div class="skeleton-line" style="height:8px;width:100%;margin-top:12px;"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ORDER BOOK -->
+  <section id="orderbook-section" style="display:none;">
+    <div class="orderbook-panel" id="orderbook-panel">
+      <div class="section-header" style="margin-bottom:0.25rem;">
+        <span class="section-title">📖 Order Book</span>
+        <span class="api-ref">
+          via <a href="https://docs.polymarket.com/api-reference/market-data/get-order-book" target="_blank">clob.polymarket.com/book</a>
+        </span>
+      </div>
+      <div class="orderbook-market-label" id="ob-market-label">Click a market card to view its order book</div>
+      <div class="orderbook-cols" id="ob-cols">
+        <div>
+          <div class="ob-header"><span>Ask Price</span><span>Size</span></div>
+          <div id="ob-asks"><div class="ob-empty">—</div></div>
+        </div>
+        <div>
+          <div class="ob-header"><span>Bid Price</span><span>Size</span></div>
+          <div id="ob-bids"><div class="ob-empty">—</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- API DOC STRIP -->
+  <section id="how-it-works">
+    <div class="api-strip">
+      <h2>Built with the Polymarket CLOB API</h2>
+      <p>Every number on this page is live. Here's exactly what's being called — no black boxes, no wrappers. Tap any endpoint to read the full docs.</p>
+      <div class="api-endpoint-list">
+        <div class="api-endpoint">
+          <span class="api-method">GET</span>
+          <div>
+            <div class="api-path">gamma-api.polymarket.com/markets</div>
+            <div class="api-desc">Fetches active markets with prices, volume, categories, and token IDs</div>
+            <div class="api-endpoint-docs">
+              <a href="https://docs.polymarket.com/api-reference/events/list-events" target="_blank">→ docs.polymarket.com/api-reference/events/list-events</a>
+            </div>
+          </div>
+        </div>
+        <div class="api-endpoint">
+          <span class="api-method">GET</span>
+          <div>
+            <div class="api-path">clob.polymarket.com/book?token_id=&lt;id&gt;</div>
+            <div class="api-desc">Fetches real-time order book depth (bids + asks) for any outcome token</div>
+            <div class="api-endpoint-docs">
+              <a href="https://docs.polymarket.com/api-reference/market-data/get-order-book" target="_blank">→ docs.polymarket.com/api-reference/market-data/get-order-book</a>
+            </div>
+          </div>
+        </div>
+        <div class="api-endpoint">
+          <span class="api-method">GET</span>
+          <div>
+            <div class="api-path">clob.polymarket.com/midpoints?token_id=&lt;id&gt;</div>
+            <div class="api-desc">Retrieves midpoint price (avg of best bid + ask) for displayed probability</div>
+            <div class="api-endpoint-docs">
+              <a href="https://docs.polymarket.com/api-reference/data/get-midpoint-price" target="_blank">→ docs.polymarket.com/api-reference/data/get-midpoint-price</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">🫧 PolyPocket</div>
+  <p>A proof-of-concept integration built on the <a href="https://docs.polymarket.com" style="color:var(--purple);text-decoration:none;">Polymarket CLOB API</a>. Read-only, no API key required. All data is live from Polygon mainnet.</p>
+  <div class="footer-links">
+    <a href="https://github.com/emudoteth/polypocket" target="_blank">GitHub</a>
+    <a href="https://docs.polymarket.com" target="_blank">Polymarket Docs</a>
+    <a href="https://polymarket.com" target="_blank">Polymarket.com</a>
+    <a href="https://docs.polymarket.com/api-reference/clients-sdks" target="_blank">SDKs</a>
+  </div>
+</footer>
+
+<script>
+// ─── CONFIG ───
+const GAMMA_API = 'https://gamma-api.polymarket.com';
+const CLOB_API  = 'https://clob.polymarket.com';
+const MARKETS_LIMIT = 30;
+
+// ─── STATE ───
+let allMarkets = [];
+let activeFilter = 'all';
+let searchQuery = '';
+let selectedTokenId = null;
+
+// ─── HELPERS ───
+const fmt = (n) => {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  if (n >= 1_000_000) return `$${(n/1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `$${(n/1_000).toFixed(0)}K`;
+  return `$${n.toFixed(0)}`;
+};
+
+const pct = (v) => {
+  const n = parseFloat(v);
+  if (isNaN(n)) return '—';
+  return `${Math.round(n * 100)}%`;
+};
+
+const getEmoji = (tags) => {
+  if (!tags) return '🌐';
+  const t = tags.join(' ').toLowerCase();
+  if (t.includes('politics') || t.includes('election')) return '🗳️';
+  if (t.includes('crypto') || t.includes('bitcoin') || t.includes('eth')) return '🔮';
+  if (t.includes('sports') || t.includes('nfl') || t.includes('nba')) return '🏆';
+  if (t.includes('tech') || t.includes('ai')) return '💻';
+  if (t.includes('finance') || t.includes('econ')) return '📈';
+  if (t.includes('weather') || t.includes('climate')) return '🌦️';
+  return '🫧';
+};
+
+// ─── FETCH MARKETS ───
+async function fetchMarkets() {
+  try {
+    const params = new URLSearchParams({
+      active: 'true',
+      limit: MARKETS_LIMIT,
+      order: 'volume24hr',
+      ascending: 'false',
+      closed: 'false'
+    });
+    const res = await fetch(`${GAMMA_API}/markets?${params}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    console.error('Market fetch failed:', e);
+    return null;
+  }
+}
+
+// ─── FETCH ORDERBOOK ───
+async function fetchOrderBook(tokenId) {
+  try {
+    const res = await fetch(`${CLOB_API}/book?token_id=${tokenId}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    console.error('OrderBook fetch failed:', e);
+    return null;
+  }
+}
+
+// ─── RENDER MARKET CARD ───
+function renderCard(m) {
+  const tokens = m.clobTokenIds ? JSON.parse(m.clobTokenIds) : [];
+  const outcomes = m.outcomes ? JSON.parse(m.outcomes) : ['Yes', 'No'];
+  const outcomePrices = m.outcomePrices ? JSON.parse(m.outcomePrices) : [];
+  const tags = m.tags || [];
+  const category = tags[0] || 'General';
+  const emoji = getEmoji(tags.map(t => typeof t === 'object' ? t.label || '' : t));
+  const vol = m.volume24hr || m.volume || 0;
+  const tokenId = tokens[0] || '';
+
+  const yesPrice = parseFloat(outcomePrices[0]) || 0.5;
+
+  const pillsHtml = outcomes.slice(0, 3).map((o, i) => {
+    const price = parseFloat(outcomePrices[i]) || 0;
+    const cls = i === 0 && price > 0.6 ? 'yes-high' : i === 1 && price > 0.6 ? 'no-high' : '';
+    return `<div class="outcome-pill">
+      <span class="outcome-label">${o}</span>
+      <span class="outcome-price ${cls}">${pct(price)}</span>
+    </div>`;
+  }).join('');
+
+  const barPct = Math.round(yesPrice * 100);
+
+  return `
+    <div class="market-card" data-token="${tokenId}" onclick="showOrderBook('${tokenId}', ${JSON.stringify(m.question || m.title).replace(/'/g,"\\'")} )">
+      <div class="market-header">
+        ${m.image
+          ? `<img class="market-img" src="${m.image}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+          : ''}
+        <div class="market-img-placeholder" ${m.image ? 'style="display:none"' : ''}>${emoji}</div>
+        <div class="market-title">${m.question || m.title || 'Unknown market'}</div>
+      </div>
+      <div class="market-outcomes">${pillsHtml}</div>
+      <div class="outcome-bar">
+        <div class="outcome-bar-fill" style="width:${barPct}%"></div>
+      </div>
+      <div class="market-meta">
+        <span class="market-volume">Vol: ${fmt(vol)}</span>
+        <span class="market-category">${typeof category === 'object' ? category.label : category}</span>
+        <span class="market-status">
+          <span class="status-dot"></span>
+          <span>Live</span>
+        </span>
+      </div>
+    </div>`;
+}
+
+// ─── SHOW ORDER BOOK ───
+async function showOrderBook(tokenId, question) {
+  const section = document.getElementById('orderbook-section');
+  const label = document.getElementById('ob-market-label');
+  const asksEl = document.getElementById('ob-asks');
+  const bidsEl = document.getElementById('ob-bids');
+
+  section.style.display = 'block';
+  section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  label.textContent = question;
+  asksEl.innerHTML = '<div class="ob-empty">Loading...</div>';
+  bidsEl.innerHTML = '<div class="ob-empty">Loading...</div>';
+
+  const book = await fetchOrderBook(tokenId);
+  if (!book) {
+    asksEl.innerHTML = '<div class="ob-empty">Could not load order book</div>';
+    bidsEl.innerHTML = '';
+    return;
+  }
+
+  const asks = (book.asks || []).slice(0, 8);
+  const bids = (book.bids || []).slice(0, 8);
+  const maxAsk = asks.reduce((m, r) => Math.max(m, parseFloat(r.size || 0)), 0);
+  const maxBid = bids.reduce((m, r) => Math.max(m, parseFloat(r.size || 0)), 0);
+
+  asksEl.innerHTML = asks.length ? asks.map(r => {
+    const pct = maxAsk ? (parseFloat(r.size)/maxAsk*100) : 0;
+    return `<div class="ob-row ob-ask">
+      <div class="ob-bg" style="width:${pct}%"></div>
+      <span class="ob-price-ask">${parseFloat(r.price).toFixed(3)}</span>
+      <span class="ob-size">${parseFloat(r.size).toFixed(0)}</span>
+    </div>`;
+  }).join('') : '<div class="ob-empty">No asks</div>';
+
+  bidsEl.innerHTML = bids.length ? bids.map(r => {
+    const pct = maxBid ? (parseFloat(r.size)/maxBid*100) : 0;
+    return `<div class="ob-row ob-bid">
+      <div class="ob-bg" style="width:${pct}%"></div>
+      <span class="ob-price-bid">${parseFloat(r.price).toFixed(3)}</span>
+      <span class="ob-size">${parseFloat(r.size).toFixed(0)}</span>
+    </div>`;
+  }).join('') : '<div class="ob-empty">No bids</div>';
+}
+
+// ─── RENDER GRID ───
+function renderGrid() {
+  const grid = document.getElementById('market-grid');
+  let filtered = allMarkets;
+
+  if (activeFilter !== 'all') {
+    filtered = filtered.filter(m => {
+      const tags = (m.tags || []).map(t => (typeof t === 'object' ? t.label : t).toLowerCase());
+      return tags.some(t => t.includes(activeFilter.toLowerCase()));
+    });
+  }
+
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    filtered = filtered.filter(m =>
+      (m.question || m.title || '').toLowerCase().includes(q) ||
+      (m.tags || []).some(t => (typeof t === 'object' ? t.label : t).toLowerCase().includes(q))
+    );
+  }
+
+  if (filtered.length === 0) {
+    grid.innerHTML = '<div class="error-block" style="grid-column:1/-1">No markets found matching your search.</div>';
+    return;
+  }
+
+  grid.innerHTML = filtered.map(renderCard).join('');
+}
+
+// ─── BUILD FILTERS ───
+function buildFilters(markets) {
+  const tagCounts = {};
+  markets.forEach(m => {
+    (m.tags || []).forEach(t => {
+      const label = typeof t === 'object' ? t.label : t;
+      if (label) tagCounts[label] = (tagCounts[label] || 0) + 1;
+    });
+  });
+  const topTags = Object.entries(tagCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([t]) => t);
+
+  const container = document.getElementById('filter-tabs');
+  topTags.forEach(tag => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-tab';
+    btn.dataset.filter = tag;
+    btn.textContent = tag;
+    btn.onclick = () => {
+      activeFilter = tag;
+      document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderGrid();
+    };
+    container.appendChild(btn);
+  });
+
+  container.querySelector('[data-filter="all"]').onclick = () => {
+    activeFilter = 'all';
+    document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+    container.querySelector('[data-filter="all"]').classList.add('active');
+    renderGrid();
+  };
+}
+
+// ─── INIT ───
+async function init() {
+  const markets = await fetchMarkets();
+
+  if (!markets) {
+    document.getElementById('market-grid').innerHTML = `
+      <div class="error-block" style="grid-column:1/-1">
+        <strong>Couldn't reach the Polymarket API</strong><br/>
+        This usually means a CORS restriction or network issue in your browser.<br/>
+        <a href="https://github.com/emudoteth/polypocket" class="btn-ghost refresh-btn" style="display:inline-block;margin-top:0.75rem;">View the source on GitHub →</a>
+      </div>`;
+    return;
+  }
+
+  allMarkets = markets;
+
+  // Stats
+  const totalVol = markets.reduce((s, m) => s + (parseFloat(m.volume24hr) || 0), 0);
+  const categories = new Set(
+    markets.flatMap(m => (m.tags || []).map(t => typeof t === 'object' ? t.label : t))
+  ).size;
+
+  document.getElementById('stat-markets').textContent = markets.length;
+  document.getElementById('stat-volume').textContent = fmt(totalVol);
+  document.getElementById('stat-categories').textContent = categories;
+
+  buildFilters(markets);
+  renderGrid();
+}
+
+// ─── SEARCH ───
+document.getElementById('search').addEventListener('input', (e) => {
+  searchQuery = e.target.value;
+  renderGrid();
+});
+
+init();
+
+// ─── AUTO-REFRESH EVERY 30s ───
+setInterval(async () => {
+  const fresh = await fetchMarkets();
+  if (fresh && fresh.length) {
+    allMarkets = fresh;
+    renderGrid();
+  }
+}, 30_000);
+</script>
+</body>
+</html>
