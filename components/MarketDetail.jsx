@@ -103,12 +103,27 @@ function ChartTooltip({ active, payload, label }) {
 }
 
 // ── Main Component ────────────────────────────────────────────────────
-export default function MarketDetail({ event, onClose, onTrade }) {
+export default function MarketDetail({ event: eventProp, onClose, onTrade }) {
   const [interval, setIntervalVal] = useState('1W');
   const [chartData, setChartData]   = useState(null);
   const [chartErr, setChartErr]     = useState(false);
   const [chartLoading, setLoading]  = useState(true);
+  const [fullEvent, setFullEvent]   = useState(null);  // hydrated event with markets
   const abortRef = useRef(null);
+
+  // Use hydrated event if available, otherwise prop
+  const event = fullEvent || eventProp;
+
+  // If markets are missing or empty, fetch full event from Gamma API
+  useEffect(() => {
+    const hasMkts = Array.isArray(eventProp?.markets) && eventProp.markets.length > 0;
+    if (!hasMkts && eventProp?.id) {
+      fetch(`/api/event?id=${eventProp.id}`)
+        .then(r => r.json())
+        .then(data => { if (data?.id) setFullEvent(data); })
+        .catch(() => {});
+    }
+  }, [eventProp?.id]);
 
   const outcomes  = buildOutcomes(event);
   // For chart: show first 4 outcomes that have token IDs
@@ -283,7 +298,7 @@ export default function MarketDetail({ event, onClose, onTrade }) {
 
         {/* Outcome rows */}
         {outcomes.length === 0 ? (
-          <div style={centerMuted}>No outcomes available</div>
+          <div style={centerMuted}>{!fullEvent && !eventProp?.markets?.length ? 'Loading…' : 'No outcomes available'}</div>
         ) : isBinary ? (
           // ── Binary: two big "YES / NO" buttons ──
           <div style={{ background:'white', borderRadius:12, border:'1px solid #e5e7eb', padding:'0.85rem', marginBottom:'0.75rem' }}>
