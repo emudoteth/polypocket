@@ -38,7 +38,13 @@ export function parseOutcomes(event) {
       : []
   );
 
-  return shortenOutcomes(raw);
+  const shortened = shortenOutcomes(raw);
+  // Deprioritise Polymarket placeholder names (Person AN, Person BX, etc.)
+  // Move them to the end so named outcomes show first on the card
+  const isPlaceholder = name => /^Person\s+[A-Z]{1,4}$/i.test(name);
+  const named = shortened.filter(o => !isPlaceholder(o.name) || o.price === null);
+  const anon  = shortened.filter(o => isPlaceholder(o.name));
+  return [...named, ...anon];
 }
 
 /**
