@@ -84,8 +84,9 @@ export default function Home() {
         <title>PolyPocket — The whole prediction market, in your pocket</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content="#7c3aed" />
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <link rel="icon" type="image/png" href="/favicon.png" />
+        <link rel="shortcut icon" href="/logo.png" />
+        <link rel="icon" type="image/png" sizes="512x512" href="/logo.png" />
+        <link rel="apple-touch-icon" href="/logo.png" />
       </Head>
 
       {/* NAV */}
