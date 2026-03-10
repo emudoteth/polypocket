@@ -8,7 +8,8 @@ import Portfolio from '../components/Portfolio';
 import MarketCard from '../components/MarketCard';
 import MarketDetail from '../components/MarketDetail';
 
-const PAGE = 48;
+const PAGE = 48;       // target displayed count
+const FETCH_SIZE = 100; // over-fetch to account for resolved-event filtering
 
 // ── Helpers ──
 const fmtVol = n => {
@@ -52,14 +53,14 @@ export default function Home() {
     setLoading(true);
     const off = reset ? 0 : offset;
     try {
-      const params = new URLSearchParams({ tag, offset: off, limit: PAGE });
+      const params = new URLSearchParams({ tag, offset: off, limit: FETCH_SIZE });
       const t0 = performance.now();
       const res = await fetch(`/api/events?${params}`);
       const data = await res.json();
       const next = reset ? data : [...events, ...data];
       setEvents(next);
       setOffset(off + data.length);
-      setExhausted(data.length < PAGE);
+      setExhausted(data.length < FETCH_SIZE);
       const vol = next.reduce((s, e) => s + (parseFloat(e.volume24hr) || 0), 0);
       setStats({ loaded: next.length, vol: fmtVol(vol), apiMs: Math.round(performance.now() - t0) });
     } catch {}
