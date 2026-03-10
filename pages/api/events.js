@@ -11,6 +11,8 @@ export default async function handler(req, res) {
     order: 'volume24hr',
     ascending: 'false',
   });
+
+  // Only apply tag filter when a specific category is selected
   if (tag && tag !== 'all') params.set('tag_slug', tag);
 
   try {
