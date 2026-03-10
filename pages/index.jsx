@@ -20,9 +20,9 @@ const fmtVol = n => {
 const pct = v => { const n = parseFloat(v); return isNaN(n) ? '—' : `${Math.round(n * 100)}%`; };
 const tagEmoji = slug => ({
   politics:'🗳️', sports:'🏆', crypto:'🔮', finance:'📈', geopolitics:'🌐',
-  tech:'💻', culture:'🎭', economy:'💰', iran:'🇮🇷', elections:'🗳️',
+  tech:'💻', culture:'🎭', economy:'💰', iran:'🦁', elections:'🗳️',
   entertainment:'🎬', nfl:'🏈', nba:'🏀', 'climate-science':'🌦️',
-}[slug] || '🦁');
+}[slug] || '🫧');
 
 const CATEGORIES = [
   { tag:'all', label:'🌐 All' }, { tag:'politics', label:'🗳️ Politics' },
@@ -93,7 +93,7 @@ export default function Home() {
       {/* NAV */}
       <nav style={navStyle}>
         <a href="#" style={logoStyle}>
-            <span style={{ fontSize:'1.5rem', lineHeight:1, flexShrink:0 }}>🦁</span>
+            <img src="/logo.png" alt="PolyPocket" style={{ width:32, height:32, borderRadius:8, objectFit:'cover', flexShrink:0 }} />
             PolyPocket
           </a>
         <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
@@ -111,7 +111,7 @@ export default function Home() {
       <section style={heroStyle}>
         <div style={heroBadge}>✨ Live · No Paid Key · Powered by Polymarket</div>
         <h1 style={h1Style}>
-          <span style={{ fontSize:'3.2rem', verticalAlign:'middle', marginRight:'0.35rem', display:'inline-block', lineHeight:1 }}>🦁</span>
+          <img src="/logo.png" alt="" style={{ width:64, height:64, borderRadius:14, objectFit:'cover', verticalAlign:'middle', marginRight:'0.4rem', display:'inline-block' }} />
           PolyPocket
         </h1>
         <p style={heroSub}>
@@ -257,7 +257,7 @@ export default function Home() {
         <div style={{ fontSize:'1rem', fontWeight:900, marginBottom:'0.4rem',
           background:'linear-gradient(135deg,var(--pink),var(--purple))',
           WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
-          🦁 PolyPocket
+          🫧 PolyPocket
         </div>
         <p style={{ fontSize:'0.75rem', color:'var(--muted)', maxWidth:420, margin:'0 auto 0.75rem', lineHeight:1.6 }}>
           A proof-of-concept integration built on the Polymarket CLOB API. All trading uses your connected wallet — non-custodial, on Polygon.
