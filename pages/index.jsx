@@ -109,6 +109,20 @@ export default function Home() {
 
       {/* HERO */}
       <section style={heroStyle}>
+        {/* Decorative side images — hidden on mobile, visible on wider screens */}
+        <img src="/hero-deco.png" aria-hidden="true" style={{
+          position:'absolute', left:0, bottom:0,
+          width:'clamp(140px,18vw,280px)', opacity:0.82,
+          pointerEvents:'none', userSelect:'none',
+          display:'block',
+        }} />
+        <img src="/hero-deco.png" aria-hidden="true" style={{
+          position:'absolute', right:0, bottom:0,
+          width:'clamp(140px,18vw,280px)', opacity:0.82,
+          pointerEvents:'none', userSelect:'none',
+          transform:'scaleX(-1)',
+          display:'block',
+        }} />
         <div style={heroBadge}>✨ Live · No Paid Key · Powered by Polymarket</div>
         <h1 style={h1Style}>
           <img src="/logo.png" alt="" style={{ width:64, height:64, borderRadius:14, objectFit:'cover', verticalAlign:'middle', marginRight:'0.4rem', display:'inline-block' }} />
@@ -304,6 +318,7 @@ const logoStyle = {
   backgroundClip:'text', textDecoration:'none',
 };
 const heroStyle = {
+  position:'relative', overflow:'hidden',
   background:'linear-gradient(160deg,#fdf4ff 0%,#ede9fe 55%,#fce7f3 100%)',
   padding:'2.5rem 1rem 2rem', textAlign:'center',
   borderBottom:'1px solid var(--border)',
