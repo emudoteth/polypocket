@@ -1,10 +1,9 @@
 // cache-bust: 1773157374
 import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount } from 'wagmi';
-import dynamic from 'next/dynamic';
-const TradeModal = dynamic(() => import('../components/TradeModal'), { ssr: false });
+import { useWallet } from '../hooks/useWallet';
+import WalletButton from '../components/WalletButton';
+import TradeModal from '../components/TradeModal';
 import Portfolio from '../components/Portfolio';
 import MarketCard from '../components/MarketCard';
 import MarketDetail from '../components/MarketDetail';
@@ -38,7 +37,7 @@ const CATEGORIES = [
 
 // ── Main Page ──
 export default function Home() {
-  const { isConnected, address } = useAccount();
+  const { isConnected, address } = useWallet();
   const [events, setEvents] = useState([]);
   const [tag, setTag] = useState('all');
   const [offset, setOffset] = useState(0);
@@ -103,11 +102,7 @@ export default function Home() {
               display:'inline-block', animation:'pulse 2s infinite' }} />
             Live
           </span>
-          <ConnectButton
-            showBalance={false}
-            chainStatus="icon"
-            accountStatus="avatar"
-          />
+          <WalletButton />
         </div>
       </nav>
 
