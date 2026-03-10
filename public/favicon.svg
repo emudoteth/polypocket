@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="32" fill="#320080"/>
+  <circle cx="32" cy="34" r="22" fill="#a050dc"/>
+  <rect x="18" y="48" width="28" height="12" rx="5" fill="#9046d0"/>
+  <!-- eyes -->
+  <ellipse cx="22" cy="30" rx="8" ry="7" fill="#280050"/>
+  <ellipse cx="42" cy="30" rx="8" ry="7" fill="#280050"/>
+  <!-- charts in eyes -->
+  <polyline points="15,35 18,28 21,31 24,24 27,26" fill="none" stroke="#64ffb4" stroke-width="1.5"/>
+  <rect x="35" y="26" width="4" height="8" fill="#64c8ff" opacity="0.9"/>
+  <rect x="40" y="24" width="4" height="10" fill="#9664ff" opacity="0.9"/>
+  <rect x="45" y="28" width="4" height="6" fill="#64ffb4" opacity="0.9"/>
+  <!-- nose -->
+  <polygon points="32,38 28,46 36,46" fill="#280050"/>
+  <!-- teeth -->
+  <rect x="20" y="52" width="5" height="6" rx="1" fill="#f0d8ff"/>
+  <rect x="27" y="52" width="5" height="6" rx="1" fill="#f0d8ff"/>
+  <rect x="34" y="52" width="5" height="6" rx="1" fill="#f0d8ff"/>
+  <!-- bow -->
+  <polygon points="32,10 20,5 18,14 32,12" fill="#ff5090"/>
+  <polygon points="32,10 44,5 46,14 32,12" fill="#ff5090"/>
+  <circle cx="32" cy="11" r="4" fill="#ff80b0"/>
+  <!-- sparkles -->
+  <circle cx="8" cy="10" r="2" fill="#ffdc64" opacity="0.8"/>
+  <circle cx="55" cy="15" r="1.5" fill="#ffdc64" opacity="0.8"/>
+  <circle cx="10" cy="50" r="1.5" fill="#ff80ff" opacity="0.8"/>
+  <circle cx="56" cy="50" r="2" fill="#ffdc64" opacity="0.8"/>
+</svg>
