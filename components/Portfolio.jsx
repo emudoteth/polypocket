@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 
-const fmtUSD  = n => n == null ? '—' : `$${Math.abs(parseFloat(n)).toFixed(2)}`;
-const fmtPct  = n => n == null ? '—' : `${parseFloat(n) >= 0 ? '+' : ''}${parseFloat(n).toFixed(1)}%`;
-const fmtSize = n => n == null ? '—' : parseFloat(n).toFixed(0);
+const safeFloat = n => { const v = parseFloat(n); return isNaN(v) ? null : v; };
+const fmtUSD  = n => { const v = safeFloat(n); return v == null ? '—' : `$${Math.abs(v).toFixed(2)}`; };
+const fmtPct  = n => { const v = safeFloat(n); return v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`; };
+const fmtSize = n => { const v = safeFloat(n); return v == null ? '—' : v.toFixed(0); };
+const fmtCents= n => { const v = safeFloat(n); return v == null ? '—' : `${(v*100).toFixed(1)}¢`; };
 const fmtDate = d => { try { return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'}); } catch { return '—'; } };
 
 export default function Portfolio({ address, onTrade }) {
@@ -47,8 +49,12 @@ export default function Portfolio({ address, onTrade }) {
     if (t === 'leaderboard') loadLeaderboard();
   };
 
-  // Filter out dust / $0 positions
-  const activePositions = positions?.filter(p => parseFloat(p.currentValue) >= 0.01 && parseFloat(p.size) >= 0.01) || [];
+  // Filter out $0 / null / dust positions — require both size and currentValue to be real numbers > 0
+  const activePositions = (positions || []).filter(p => {
+    const val = safeFloat(p.currentValue);
+    const sz  = safeFloat(p.size);
+    return val != null && val >= 0.01 && sz != null && sz >= 0.01;
+  });
 
   // Summary stats
   const totalValue     = activePositions.reduce((s, p) => s + (parseFloat(p.currentValue) || 0), 0) || 0;
@@ -134,14 +140,13 @@ export default function Portfolio({ address, onTrade }) {
           ) : (
             <div>
               {activePositions.map((p, i) => {
-                const pnl      = parseFloat(p.cashPnl) || 0;
-                const pnlPct   = parseFloat(p.percentPnl) || 0;
-                const curVal   = parseFloat(p.currentValue) || 0;
-                const curPrc   = parseFloat(p.curPrice) || 0;
-                const avgPrc   = parseFloat(p.avgPrice) || 0;
+                const pnl      = safeFloat(p.cashPnl)      ?? 0;
+                const pnlPct   = safeFloat(p.percentPnl)   ?? 0;
+                const curVal   = safeFloat(p.currentValue) ?? 0;
+                const curPrc   = safeFloat(p.curPrice)     ?? 0;
+                const avgPrc   = safeFloat(p.avgPrice)     ?? 0;
                 const isGreen  = pnl >= 0;
                 const isYes    = p.outcome?.toLowerCase() === 'yes';
-                // implied probability bar: curPrc 0→1
                 const barPct   = Math.min(100, Math.max(0, curPrc * 100));
 
                 return (
@@ -172,7 +177,7 @@ export default function Portfolio({ address, onTrade }) {
                       <div style={{ display:'flex', gap:'0.35rem', flexWrap:'wrap', marginBottom:'0.4rem' }}>
                         <span style={outcomeBadge(p.outcome)}>{p.outcome}</span>
                         <span style={metaChip}>{fmtSize(p.size)} shares</span>
-                        <span style={metaChip}>avg {(avgPrc*100).toFixed(1)}¢</span>
+                        <span style={metaChip}>avg {fmtCents(p.avgPrice)}</span>
                         {p.endDate && <span style={metaChip}>⏱ {fmtDate(p.endDate)}</span>}
                         {p.negativeRisk && <span style={{ ...metaChip, color:'var(--purple)', borderColor:'var(--purple)' }}>neg-risk</span>}
                       </div>
@@ -184,15 +189,15 @@ export default function Portfolio({ address, onTrade }) {
                             Current market: <strong style={{ color: isYes ? 'var(--green)' : 'var(--red)' }}>{barPct.toFixed(1)}¢</strong>
                           </span>
                           <span style={{ fontSize:'0.65rem', color:'var(--muted)' }}>
-                            entry {(avgPrc*100).toFixed(1)}¢
+                            entry {fmtCents(p.avgPrice)}
                             {' '}<span style={{ color: isGreen ? 'var(--green)' : 'var(--red)', fontWeight:700 }}>
-                              {isGreen ? '▲' : '▼'} {Math.abs(curPrc - avgPrc < 0 ? (avgPrc - curPrc)*100 : (curPrc - avgPrc)*100).toFixed(1)}¢
+                              {isGreen ? '▲' : '▼'} {Math.abs((curPrc - avgPrc)*100).toFixed(1)}¢
                             </span>
                           </span>
                         </div>
                         <div style={{ height:5, borderRadius:3, background:'var(--bg)', overflow:'hidden', position:'relative' }}>
                           {/* Entry marker */}
-                          <div style={{ position:'absolute', top:0, bottom:0, left:`${(avgPrc*100)}%`,
+                          <div style={{ position:'absolute', top:0, bottom:0, left:`${Math.min(100,Math.max(0,avgPrc*100))}%`,
                             width:2, background:'var(--muted)', zIndex:2, transform:'translateX(-50%)' }} />
                           {/* Current price fill */}
                           <div style={{ height:'100%', width:`${barPct}%`,
