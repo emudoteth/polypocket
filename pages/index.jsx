@@ -3,6 +3,7 @@ import Head from 'next/head';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
 import TradeModal from '../components/TradeModal';
+import Portfolio from '../components/Portfolio';
 import MarketCard from '../components/MarketCard';
 import MarketDetail from '../components/MarketDetail';
 
@@ -35,7 +36,7 @@ const CATEGORIES = [
 
 // ── Main Page ──
 export default function Home() {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const [events, setEvents] = useState([]);
   const [tag, setTag] = useState('all');
   const [offset, setOffset] = useState(0);
@@ -163,6 +164,13 @@ export default function Home() {
           onChange={e => setSearch(e.target.value)}
         />
       </div>
+
+      {/* PORTFOLIO — only when wallet connected */}
+      {isConnected && address && (
+        <div style={{ padding:'0 0.75rem', paddingLeft:'max(0.75rem,env(safe-area-inset-left))', paddingRight:'max(0.75rem,env(safe-area-inset-right))' }}>
+          <Portfolio address={address} onTrade={setTradeTarget} />
+        </div>
+      )}
 
       {/* GRID */}
       <div style={{ padding:'0 0.75rem 1.5rem', paddingLeft:'max(0.75rem,env(safe-area-inset-left))',
