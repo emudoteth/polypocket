@@ -103,3 +103,4 @@ export function useWallet() {
 
   return { address, chainId, signer, isConnected, onPolygon, connecting, error, connect, disconnect, switchToPolygon };
 }
+
