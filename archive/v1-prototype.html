@@ -1,0 +1,800 @@
+<!-- v1 Prototype — vanilla HTML/JS proof-of-concept. Superseded by Next.js app in pages/. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#7c3aed" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>PolyPocket — The whole prediction market, in your pocket</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🫧</text></svg>" />
+  <style>
+    :root {
+      --pink:    #e91e8c;
+      --purple:  #7c3aed;
+      --lavender:#c4b5fd;
+      --lilac:   #ede9fe;
+      --bg:      #faf5ff;
+      --card:    #ffffff;
+      --text:    #1e1b4b;
+      --muted:   #6b7280;
+      --green:   #059669;
+      --red:     #dc2626;
+      --border:  #e5e7eb;
+      --radius:  14px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      overscroll-behavior: none;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky; top: 0; z-index: 200;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 1rem;
+      height: 52px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding-left: max(1rem, env(safe-area-inset-left));
+      padding-right: max(1rem, env(safe-area-inset-right));
+    }
+    .nav-logo {
+      font-size: 1.15rem; font-weight: 900; letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; text-decoration: none;
+    }
+    .nav-right { display: flex; align-items: center; gap: 0.75rem; }
+    .nav-pill {
+      font-size: 0.78rem; font-weight: 700;
+      color: white; background: var(--purple);
+      padding: 0.3rem 0.85rem; border-radius: 99px;
+      text-decoration: none; transition: background .2s;
+      white-space: nowrap;
+    }
+    .nav-pill:hover { background: var(--pink); }
+    .live-dot {
+      display: flex; align-items: center; gap: 0.35rem;
+      font-size: 0.72rem; font-weight: 600; color: var(--green);
+    }
+    .live-dot::before {
+      content: '';
+      display: block; width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s infinite;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(160deg, #fdf4ff 0%, #ede9fe 55%, #fce7f3 100%);
+      padding: 2.5rem 1rem 2rem;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      background: white; border: 1.5px solid var(--lavender);
+      color: var(--purple); font-size: 0.72rem; font-weight: 700;
+      letter-spacing: 0.07em; text-transform: uppercase;
+      padding: 0.28rem 0.8rem; border-radius: 99px;
+      margin-bottom: 1rem;
+    }
+    .hero h1 {
+      font-size: clamp(2.2rem, 8vw, 4rem); font-weight: 900;
+      line-height: 1.05; letter-spacing: -0.03em;
+      background: linear-gradient(135deg, var(--pink) 0%, var(--purple) 65%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; margin-bottom: 0.6rem;
+    }
+    .hero-sub {
+      font-size: clamp(0.9rem, 2.5vw, 1.05rem);
+      color: var(--muted); max-width: 520px; margin: 0 auto 1.5rem;
+      line-height: 1.6;
+    }
+    .hero-sub strong { color: var(--purple); }
+    .hero-ctas { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      color: white; font-weight: 700; font-size: 0.88rem;
+      padding: 0.65rem 1.5rem; border-radius: 99px;
+      text-decoration: none; border: none; cursor: pointer;
+      transition: opacity .2s, transform .2s;
+    }
+    .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn-ghost {
+      background: white; color: var(--purple); font-weight: 700;
+      font-size: 0.88rem; padding: 0.65rem 1.5rem; border-radius: 99px;
+      text-decoration: none; border: 1.5px solid var(--lavender);
+      transition: border-color .2s;
+    }
+    .btn-ghost:hover { border-color: var(--purple); }
+
+    /* ── STATS BAR ── */
+    .stats-bar {
+      background: white; border-bottom: 1px solid var(--border);
+      display: flex; overflow-x: auto; scrollbar-width: none;
+      padding: 0 0.75rem;
+      padding-left: max(0.75rem, env(safe-area-inset-left));
+      padding-right: max(0.75rem, env(safe-area-inset-right));
+      gap: 0;
+    }
+    .stats-bar::-webkit-scrollbar { display: none; }
+    .stat {
+      flex: 0 0 auto;
+      padding: 0.85rem 1rem;
+      text-align: center;
+      border-right: 1px solid var(--border);
+    }
+    .stat:last-child { border-right: none; }
+    .stat-n {
+      font-size: 1.15rem; font-weight: 800;
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; white-space: nowrap;
+    }
+    .stat-l { font-size: 0.68rem; color: var(--muted); font-weight: 500; margin-top: 1px; white-space: nowrap; }
+
+    /* ── CATEGORY RAIL ── */
+    .cat-rail-wrap {
+      position: sticky; top: 52px; z-index: 100;
+      background: white; border-bottom: 1px solid var(--border);
+    }
+    .cat-rail {
+      display: flex; gap: 0.4rem; overflow-x: auto; scrollbar-width: none;
+      padding: 0.6rem 1rem;
+      padding-left: max(1rem, env(safe-area-inset-left));
+      padding-right: max(1rem, env(safe-area-inset-right));
+    }
+    .cat-rail::-webkit-scrollbar { display: none; }
+    .cat-btn {
+      flex: 0 0 auto;
+      padding: 0.38rem 0.9rem; border-radius: 99px;
+      font-size: 0.8rem; font-weight: 600;
+      border: 1.5px solid var(--border); background: white; color: var(--muted);
+      cursor: pointer; white-space: nowrap; transition: all .18s;
+    }
+    .cat-btn.active {
+      background: var(--purple); border-color: var(--purple); color: white;
+    }
+    .cat-btn:not(.active):hover { border-color: var(--purple); color: var(--purple); }
+
+    /* ── SEARCH ── */
+    .search-wrap {
+      padding: 0.75rem 1rem;
+      padding-left: max(1rem, env(safe-area-inset-left));
+      padding-right: max(1rem, env(safe-area-inset-right));
+    }
+    .search-input {
+      width: 100%; padding: 0.7rem 1rem 0.7rem 2.4rem;
+      border: 1.5px solid var(--border); border-radius: 12px;
+      font-size: 0.9rem; background: white; color: var(--text);
+      outline: none; transition: border-color .2s, box-shadow .2s;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236b7280' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: 0.75rem center;
+    }
+    .search-input:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+
+    /* ── GRID ── */
+    .grid-wrap {
+      padding: 0 0.75rem 1.5rem;
+      padding-left: max(0.75rem, env(safe-area-inset-left));
+      padding-right: max(0.75rem, env(safe-area-inset-right));
+      padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 0.75rem;
+    }
+
+    /* ── CARD ── */
+    .card {
+      background: white; border: 1.5px solid var(--border);
+      border-radius: var(--radius); padding: 1rem;
+      transition: transform .18s, box-shadow .18s, border-color .18s;
+      cursor: pointer; text-decoration: none; color: inherit;
+      display: flex; flex-direction: column; gap: 0.75rem;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .card:active { transform: scale(0.98); }
+    @media (hover: hover) {
+      .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 24px rgba(124,58,237,0.12);
+        border-color: var(--lavender);
+      }
+    }
+    .card-top { display: flex; gap: 0.65rem; align-items: flex-start; }
+    .card-img {
+      width: 40px; height: 40px; border-radius: 10px;
+      object-fit: cover; flex-shrink: 0; background: var(--lilac);
+    }
+    .card-emoji {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--lilac), #fce7f3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; flex-shrink: 0;
+    }
+    .card-title {
+      font-size: 0.875rem; font-weight: 700; line-height: 1.4;
+      display: -webkit-box; -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical; overflow: hidden;
+    }
+
+    /* outcomes */
+    .outcomes { display: flex; flex-direction: column; gap: 0.4rem; }
+    .outcome-row { display: flex; flex-direction: column; gap: 0.2rem; }
+    .outcome-label-row {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.78rem;
+    }
+    .out-name { color: var(--muted); font-weight: 500; }
+    .out-pct { font-weight: 800; }
+    .out-pct.high-yes { color: var(--green); }
+    .out-pct.high-no  { color: var(--red); }
+    .out-pct.mid      { color: var(--purple); }
+    .prob-bar { height: 5px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .prob-fill {
+      height: 100%; border-radius: 99px;
+      background: linear-gradient(90deg, var(--pink), var(--purple));
+      transition: width .4s ease;
+    }
+
+    /* card footer */
+    .card-foot {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.72rem; color: var(--muted);
+    }
+    .card-vol { font-weight: 600; }
+    .card-tag {
+      background: var(--lilac); color: var(--purple);
+      font-size: 0.65rem; font-weight: 700; padding: 0.18rem 0.5rem;
+      border-radius: 6px; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .card-live {
+      display: flex; align-items: center; gap: 0.3rem;
+      font-weight: 600; color: var(--green);
+    }
+    .card-live::before {
+      content: ''; display: block; width: 5px; height: 5px;
+      border-radius: 50%; background: var(--green); animation: pulse 2s infinite;
+    }
+
+    /* ── ORDER BOOK SHEET ── */
+    .ob-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 300;
+      background: rgba(0,0,0,0.45);
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    }
+    .ob-overlay.open { display: block; }
+    .ob-sheet {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 301;
+      background: white;
+      border-radius: 20px 20px 0 0;
+      padding: 0 1.25rem 1.5rem;
+      padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+      transform: translateY(100%);
+      transition: transform .3s cubic-bezier(.32,0,.67,0);
+      max-height: 85dvh; overflow-y: auto;
+    }
+    .ob-sheet.open { transform: translateY(0); transition-timing-function: cubic-bezier(.33,1,.68,1); }
+    .ob-handle {
+      width: 36px; height: 4px; border-radius: 2px;
+      background: var(--border); margin: 0.75rem auto 1rem;
+    }
+    .ob-header-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.25rem; }
+    .ob-title { font-size: 0.95rem; font-weight: 800; }
+    .ob-close {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--bg); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.9rem; color: var(--muted); flex-shrink: 0;
+    }
+    .ob-subtitle { font-size: 0.78rem; color: var(--muted); margin-bottom: 1rem; }
+    .ob-api-note {
+      font-size: 0.7rem; color: var(--purple); margin-bottom: 1rem;
+      font-family: monospace;
+    }
+    .ob-api-note a { color: var(--purple); text-decoration: none; }
+    .ob-api-note a:hover { text-decoration: underline; }
+    .ob-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .ob-col-head {
+      display: flex; justify-content: space-between;
+      font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--muted); margin-bottom: 0.4rem;
+    }
+    .ob-row {
+      display: flex; justify-content: space-between;
+      font-size: 0.8rem; padding: 0.22rem 0.3rem;
+      border-radius: 4px; position: relative; overflow: hidden;
+    }
+    .ob-row-bg {
+      position: absolute; top: 0; bottom: 0; right: 0;
+      border-radius: 4px; opacity: 0.1;
+    }
+    .ob-row.ask .ob-row-bg { background: var(--red); }
+    .ob-row.bid .ob-row-bg { background: var(--green); }
+    .ob-price { font-weight: 700; position: relative; z-index: 1; }
+    .ob-row.ask .ob-price { color: var(--red); }
+    .ob-row.bid .ob-price { color: var(--green); }
+    .ob-size { color: var(--muted); position: relative; z-index: 1; font-size: 0.75rem; }
+    .ob-empty { color: var(--muted); font-size: 0.8rem; text-align: center; padding: 1.5rem 0; }
+
+    /* ── API STRIP ── */
+    .api-strip {
+      margin: 0.75rem;
+      background: linear-gradient(135deg, #1e1b4b, #312e81);
+      border-radius: var(--radius); padding: 1.5rem;
+    }
+    .api-strip h3 { font-size: 0.95rem; font-weight: 800; color: white; margin-bottom: 0.25rem; }
+    .api-strip p { font-size: 0.78rem; color: var(--lavender); margin-bottom: 1rem; }
+    .api-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .api-item {
+      display: flex; gap: 0.6rem; align-items: flex-start;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px; padding: 0.6rem 0.8rem;
+    }
+    .api-method {
+      font-size: 0.62rem; font-weight: 800; letter-spacing: 0.07em;
+      color: #a5b4fc; background: rgba(165,180,252,0.15);
+      padding: 0.12rem 0.45rem; border-radius: 4px;
+      white-space: nowrap; margin-top: 1px;
+    }
+    .api-path {
+      font-size: 0.75rem; font-family: monospace; color: white; font-weight: 600;
+    }
+    .api-desc { font-size: 0.7rem; color: var(--lavender); margin-top: 0.15rem; }
+    .api-docs a { font-size: 0.65rem; color: #c4b5fd; text-decoration: none; }
+    .api-docs a:hover { text-decoration: underline; }
+
+    /* ── LOAD MORE ── */
+    .load-more-wrap { text-align: center; padding: 1.25rem; }
+    .load-more-btn {
+      background: white; color: var(--purple); font-weight: 700;
+      font-size: 0.88rem; padding: 0.65rem 2rem; border-radius: 99px;
+      border: 1.5px solid var(--lavender); cursor: pointer;
+      transition: border-color .2s, background .2s;
+    }
+    .load-more-btn:hover { border-color: var(--purple); background: var(--lilac); }
+    .load-more-btn:disabled { opacity: 0.5; cursor: default; }
+
+    /* ── SKELETON ── */
+    .skel {
+      background: white; border: 1.5px solid var(--border);
+      border-radius: var(--radius); padding: 1rem;
+      display: flex; flex-direction: column; gap: 0.75rem;
+    }
+    .skel-line {
+      border-radius: 6px;
+      background: linear-gradient(90deg, #f0e8ff 25%, #e8d8ff 50%, #f0e8ff 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+    /* ── FOOTER ── */
+    footer {
+      text-align: center; padding: 2rem 1rem 1.5rem;
+      border-top: 1px solid var(--border); background: white;
+      padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+    }
+    .footer-logo {
+      font-size: 1rem; font-weight: 900;
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; margin-bottom: 0.4rem;
+    }
+    footer p { font-size: 0.75rem; color: var(--muted); max-width: 420px; margin: 0 auto 0.75rem; line-height: 1.6; }
+    .footer-links { display: flex; gap: 1.25rem; justify-content: center; flex-wrap: wrap; }
+    .footer-links a { font-size: 0.75rem; color: var(--muted); text-decoration: none; font-weight: 500; }
+    .footer-links a:hover { color: var(--purple); }
+
+    /* ── TABLET+ ── */
+    @media (min-width: 768px) {
+      .hero { padding: 3.5rem 2rem 2.5rem; }
+      .grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
+      .grid-wrap { padding: 0 1.25rem 2rem; }
+      .ob-sheet { max-width: 640px; left: 50%; transform: translateX(-50%) translateY(100%); right: auto; border-radius: 20px; bottom: 2rem; }
+      .ob-sheet.open { transform: translateX(-50%) translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-logo" href="#">🫧 PolyPocket</a>
+  <div class="nav-right">
+    <span class="live-dot" id="live-status">Live</span>
+    <a class="nav-pill" href="https://github.com/emudoteth/polypocket" target="_blank" rel="noopener">★ GitHub</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">✨ Live · No API Key · Powered by Polymarket</div>
+  <h1>PolyPocket 🫧</h1>
+  <p class="hero-sub">The whole prediction market, <strong>in your pocket.</strong> Live markets, real-time prices, and order book depth from the <strong>Polymarket CLOB API</strong>.</p>
+  <div class="hero-ctas">
+    <a href="#markets" class="btn-primary">Browse Live Markets →</a>
+    <a href="https://github.com/emudoteth/polypocket" target="_blank" rel="noopener" class="btn-ghost">View Source</a>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-bar">
+  <div class="stat"><div class="stat-n" id="s-loaded">—</div><div class="stat-l">Markets Loaded</div></div>
+  <div class="stat"><div class="stat-n" id="s-vol">—</div><div class="stat-l">24h Volume</div></div>
+  <div class="stat"><div class="stat-n" id="s-cats">14</div><div class="stat-l">Categories</div></div>
+  <div class="stat"><div class="stat-n">Polygon</div><div class="stat-l">Network</div></div>
+</div>
+
+<!-- CATEGORY RAIL -->
+<div class="cat-rail-wrap" id="markets">
+  <div class="cat-rail" id="cat-rail">
+    <button class="cat-btn active" data-tag="all">🌐 All</button>
+    <button class="cat-btn" data-tag="politics">🗳️ Politics</button>
+    <button class="cat-btn" data-tag="sports">🏆 Sports</button>
+    <button class="cat-btn" data-tag="crypto">🔮 Crypto</button>
+    <button class="cat-btn" data-tag="iran">🌍 Iran</button>
+    <button class="cat-btn" data-tag="finance">📈 Finance</button>
+    <button class="cat-btn" data-tag="geopolitics">🌐 Geopolitics</button>
+    <button class="cat-btn" data-tag="tech">💻 Tech</button>
+    <button class="cat-btn" data-tag="culture">🎭 Culture</button>
+    <button class="cat-btn" data-tag="economy">💰 Economy</button>
+    <button class="cat-btn" data-tag="climate-science">🌦️ Climate</button>
+    <button class="cat-btn" data-tag="elections">🗳️ Elections</button>
+    <button class="cat-btn" data-tag="entertainment">🎬 Entertainment</button>
+    <button class="cat-btn" data-tag="nfl">🏈 NFL</button>
+    <button class="cat-btn" data-tag="nba">🏀 NBA</button>
+  </div>
+</div>
+
+<!-- SEARCH -->
+<div class="search-wrap">
+  <input class="search-input" id="search" type="search" placeholder="Search markets…" autocomplete="off" />
+</div>
+
+<!-- GRID -->
+<div class="grid-wrap">
+  <div class="grid" id="grid">
+    <div class="skel"><div class="skel-line" style="height:40px;width:40px;border-radius:10px"></div><div class="skel-line" style="height:13px;width:90%"></div><div class="skel-line" style="height:13px;width:65%"></div><div class="skel-line" style="height:6px;width:100%"></div></div>
+    <div class="skel"><div class="skel-line" style="height:40px;width:40px;border-radius:10px"></div><div class="skel-line" style="height:13px;width:80%"></div><div class="skel-line" style="height:13px;width:70%"></div><div class="skel-line" style="height:6px;width:100%"></div></div>
+    <div class="skel"><div class="skel-line" style="height:40px;width:40px;border-radius:10px"></div><div class="skel-line" style="height:13px;width:85%"></div><div class="skel-line" style="height:13px;width:55%"></div><div class="skel-line" style="height:6px;width:100%"></div></div>
+    <div class="skel"><div class="skel-line" style="height:40px;width:40px;border-radius:10px"></div><div class="skel-line" style="height:13px;width:75%"></div><div class="skel-line" style="height:13px;width:60%"></div><div class="skel-line" style="height:6px;width:100%"></div></div>
+    <div class="skel"><div class="skel-line" style="height:40px;width:40px;border-radius:10px"></div><div class="skel-line" style="height:13px;width:88%"></div><div class="skel-line" style="height:13px;width:50%"></div><div class="skel-line" style="height:6px;width:100%"></div></div>
+    <div class="skel"><div class="skel-line" style="height:40px;width:40px;border-radius:10px"></div><div class="skel-line" style="height:13px;width:78%"></div><div class="skel-line" style="height:13px;width:68%"></div><div class="skel-line" style="height:6px;width:100%"></div></div>
+  </div>
+  <div class="load-more-wrap" id="load-more-wrap" style="display:none">
+    <button class="load-more-btn" id="load-more-btn" onclick="loadMore()">Load More Markets</button>
+  </div>
+</div>
+
+<!-- API STRIP -->
+<div class="api-strip" id="how-it-works">
+  <h3>Built on the Polymarket CLOB API</h3>
+  <p>Every number is live. No black boxes — here's exactly what's being called.</p>
+  <div class="api-list">
+    <div class="api-item">
+      <span class="api-method">GET</span>
+      <div>
+        <div class="api-path">gamma-api.polymarket.com/events</div>
+        <div class="api-desc">Active events with tags, markets, prices, and volumes. Paginated with <code style="color:#c4b5fd">offset</code> + <code style="color:#c4b5fd">tag_slug</code>.</div>
+        <div class="api-docs"><a href="https://docs.polymarket.com/api-reference/events/list-events" target="_blank">→ docs: list-events</a></div>
+      </div>
+    </div>
+    <div class="api-item">
+      <span class="api-method">GET</span>
+      <div>
+        <div class="api-path">clob.polymarket.com/book?token_id=&lt;id&gt;</div>
+        <div class="api-desc">Real-time order book depth (bids + asks) for any outcome token.</div>
+        <div class="api-docs"><a href="https://docs.polymarket.com/api-reference/market-data/get-order-book" target="_blank">→ docs: get-order-book</a></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">🫧 PolyPocket</div>
+  <p>A proof-of-concept integration built on the <a href="https://docs.polymarket.com" style="color:var(--purple);text-decoration:none">Polymarket CLOB API</a>. Read-only. All data live from Polygon mainnet.</p>
+  <div class="footer-links">
+    <a href="https://github.com/emudoteth/polypocket" target="_blank">GitHub</a>
+    <a href="https://docs.polymarket.com" target="_blank">Docs</a>
+    <a href="https://polymarket.com" target="_blank">Polymarket</a>
+  </div>
+</footer>
+
+<!-- ORDER BOOK SHEET -->
+<div class="ob-overlay" id="ob-overlay" onclick="closeOB()"></div>
+<div class="ob-sheet" id="ob-sheet">
+  <div class="ob-handle"></div>
+  <div class="ob-header-row">
+    <div class="ob-title">📖 Order Book</div>
+    <button class="ob-close" onclick="closeOB()">✕</button>
+  </div>
+  <div class="ob-subtitle" id="ob-subtitle">—</div>
+  <div class="ob-api-note">
+    GET <a href="https://docs.polymarket.com/api-reference/market-data/get-order-book" target="_blank">clob.polymarket.com/book?token_id=…</a>
+  </div>
+  <div class="ob-cols">
+    <div>
+      <div class="ob-col-head"><span>Ask Price</span><span>Size</span></div>
+      <div id="ob-asks"><div class="ob-empty">—</div></div>
+    </div>
+    <div>
+      <div class="ob-col-head"><span>Bid Price</span><span>Size</span></div>
+      <div id="ob-bids"><div class="ob-empty">—</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──
+const PAGE = 48;
+let state = { tag: 'all', offset: 0, loading: false, exhausted: false, search: '', events: [] };
+
+// ── FORMAT ──
+const fmtVol = n => {
+  if (!n || isNaN(n)) return '—';
+  if (n >= 1e6) return `$${(n/1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `$${(n/1e3).toFixed(0)}K`;
+  return `$${n.toFixed(0)}`;
+};
+const fmtPct = v => {
+  const n = parseFloat(v);
+  return isNaN(n) ? '—' : `${Math.round(n * 100)}%`;
+};
+const tagEmoji = slug => {
+  const map = { politics:'🗳️', sports:'🏆', crypto:'🔮', finance:'📈', geopolitics:'🌐',
+    tech:'💻', culture:'🎭', economy:'💰', iran:'🌍', elections:'🗳️',
+    entertainment:'🎬', nfl:'🏈', nba:'🏀', 'climate-science':'🌦️' };
+  return map[slug] || '🫧';
+};
+const cardEmoji = tags => {
+  if (!tags || !tags.length) return '🫧';
+  for (const t of tags) {
+    const slug = (t.slug || '').toLowerCase();
+    const e = tagEmoji(slug);
+    if (e !== '🫧') return e;
+  }
+  return '🫧';
+};
+
+// ── FETCH ──
+async function fetchEvents(tag, offset) {
+  const params = new URLSearchParams({ tag, offset, limit: PAGE });
+  const r = await fetch(`/api/events?${params}`);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+// ── RENDER CARD ──
+function renderCard(ev) {
+  const markets = ev.markets || [];
+  const title = ev.title || ev.slug || 'Unknown';
+  const vol = parseFloat(ev.volume24hr) || 0;
+  const tag = (ev.tags || [])[0];
+  const tagLabel = tag ? (tag.label || tag.slug) : 'General';
+  const emoji = cardEmoji(ev.tags || []);
+  const img = ev.image || ev.icon;
+  const tokenId = markets[0]?.clobTokenIds ? (() => { try { return JSON.parse(markets[0].clobTokenIds)[0]; } catch { return ''; } })() : '';
+
+  // Build outcomes from markets
+  let outcomesHtml = '';
+  if (markets.length <= 2) {
+    // Binary
+    outcomesHtml = markets.slice(0, 2).map(m => {
+      const price = parseFloat(m.lastTradePrice || m.outcomePrices?.[0] || 0.5);
+      const pct = Math.round(price * 100);
+      const cls = price > 0.65 ? 'high-yes' : price < 0.35 ? 'high-no' : 'mid';
+      const outName = (() => { try { return JSON.parse(m.outcomes || '["Yes","No"]')[0]; } catch { return m.question?.slice(0,20) || 'Yes'; } })();
+      return `<div class="outcome-row">
+        <div class="outcome-label-row">
+          <span class="out-name">${outName}</span>
+          <span class="out-pct ${cls}">${pct}%</span>
+        </div>
+        <div class="prob-bar"><div class="prob-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    }).join('');
+  } else {
+    // Multi-outcome: show top 3
+    outcomesHtml = markets.slice(0, 3).map(m => {
+      const price = parseFloat(m.lastTradePrice || 0.5);
+      const pct = Math.round(price * 100);
+      const cls = price > 0.5 ? 'high-yes' : 'mid';
+      const name = (m.question || 'Option').slice(0, 28);
+      return `<div class="outcome-row">
+        <div class="outcome-label-row">
+          <span class="out-name" style="max-width:80%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</span>
+          <span class="out-pct ${cls}">${pct}%</span>
+        </div>
+        <div class="prob-bar"><div class="prob-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    }).join('');
+    if (markets.length > 3) outcomesHtml += `<div style="font-size:0.7rem;color:var(--muted);margin-top:0.25rem">+${markets.length-3} more outcomes</div>`;
+  }
+
+  return `<div class="card" onclick="openOB('${tokenId}', ${JSON.stringify(title)})">
+    <div class="card-top">
+      ${img
+        ? `<img class="card-img" src="${img}" alt="" loading="lazy" onerror="this.style.display='none';this.nextSibling.style.display='flex'">`
+        : ''}
+      <div class="card-emoji" ${img ? 'style="display:none"' : ''}>${emoji}</div>
+      <div class="card-title">${title}</div>
+    </div>
+    <div class="outcomes">${outcomesHtml}</div>
+    <div class="card-foot">
+      <span class="card-vol">Vol: ${fmtVol(vol)}</span>
+      <span class="card-tag">${tagLabel}</span>
+      <span class="card-live">Live</span>
+    </div>
+  </div>`;
+}
+
+// ── LOAD ──
+async function load(reset = false) {
+  if (state.loading) return;
+  state.loading = true;
+  const btn = document.getElementById('load-more-btn');
+  if (btn) btn.disabled = true;
+
+  if (reset) {
+    state.offset = 0;
+    state.exhausted = false;
+    state.events = [];
+    document.getElementById('grid').innerHTML = Array(6).fill(`
+      <div class="skel">
+        <div class="skel-line" style="height:40px;width:40px;border-radius:10px"></div>
+        <div class="skel-line" style="height:13px;width:88%"></div>
+        <div class="skel-line" style="height:13px;width:62%"></div>
+        <div class="skel-line" style="height:6px;width:100%"></div>
+      </div>`).join('');
+    document.getElementById('load-more-wrap').style.display = 'none';
+  }
+
+  try {
+    const events = await fetchEvents(state.tag, state.offset);
+    state.events.push(...events);
+    state.offset += events.length;
+    if (events.length < PAGE) state.exhausted = true;
+
+    renderGrid();
+    updateStats();
+
+    const wrap = document.getElementById('load-more-wrap');
+    if (state.exhausted) {
+      wrap.style.display = 'none';
+    } else {
+      wrap.style.display = 'block';
+      if (btn) { btn.disabled = false; btn.textContent = 'Load More Markets'; }
+    }
+  } catch (e) {
+    document.getElementById('grid').innerHTML =
+      `<div style="grid-column:1/-1;background:#fef2f2;border:1.5px solid #fecaca;border-radius:12px;padding:1.5rem;text-align:center;color:var(--red);font-size:.88rem">
+        <strong>Couldn't load markets</strong><br/>${e.message}
+      </div>`;
+  }
+  state.loading = false;
+}
+
+function loadMore() {
+  const btn = document.getElementById('load-more-btn');
+  if (btn) btn.textContent = 'Loading…';
+  load(false);
+}
+
+// ── RENDER GRID ──
+function renderGrid() {
+  let items = state.events;
+  if (state.search) {
+    const q = state.search.toLowerCase();
+    items = items.filter(e => (e.title || '').toLowerCase().includes(q) ||
+      (e.tags || []).some(t => (t.label || t.slug || '').toLowerCase().includes(q)));
+  }
+  if (!items.length) {
+    document.getElementById('grid').innerHTML =
+      `<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted);font-size:.88rem">No markets found.</div>`;
+    return;
+  }
+  document.getElementById('grid').innerHTML = items.map(renderCard).join('');
+}
+
+// ── STATS ──
+function updateStats() {
+  const vol = state.events.reduce((s, e) => s + (parseFloat(e.volume24hr) || 0), 0);
+  document.getElementById('s-loaded').textContent = state.events.length;
+  document.getElementById('s-vol').textContent = fmtVol(vol);
+}
+
+// ── ORDER BOOK ──
+async function openOB(tokenId, title) {
+  if (!tokenId) return;
+  const overlay = document.getElementById('ob-overlay');
+  const sheet = document.getElementById('ob-sheet');
+  document.getElementById('ob-subtitle').textContent = title;
+  document.getElementById('ob-asks').innerHTML = '<div class="ob-empty">Loading…</div>';
+  document.getElementById('ob-bids').innerHTML = '<div class="ob-empty"></div>';
+  overlay.classList.add('open');
+  setTimeout(() => sheet.classList.add('open'), 10);
+  document.body.style.overflow = 'hidden';
+
+  try {
+    const r = await fetch(`/api/book?token_id=${tokenId}`);
+    const book = await r.json();
+    const asks = (book.asks || []).slice(0, 8);
+    const bids = (book.bids || []).slice(0, 8);
+    const maxA = asks.reduce((m, r) => Math.max(m, parseFloat(r.size || 0)), 0);
+    const maxB = bids.reduce((m, r) => Math.max(m, parseFloat(r.size || 0)), 0);
+
+    const rowHtml = (rows, side, max) => rows.length
+      ? rows.map(r => {
+          const w = max ? (parseFloat(r.size)/max*100) : 0;
+          return `<div class="ob-row ${side}">
+            <div class="ob-row-bg" style="width:${w}%"></div>
+            <span class="ob-price">${parseFloat(r.price).toFixed(3)}</span>
+            <span class="ob-size">${parseFloat(r.size).toFixed(0)}</span>
+          </div>`;
+        }).join('')
+      : '<div class="ob-empty">No data</div>';
+
+    document.getElementById('ob-asks').innerHTML = rowHtml(asks, 'ask', maxA);
+    document.getElementById('ob-bids').innerHTML = rowHtml(bids, 'bid', maxB);
+  } catch (e) {
+    document.getElementById('ob-asks').innerHTML = `<div class="ob-empty">Error: ${e.message}</div>`;
+  }
+}
+
+function closeOB() {
+  document.getElementById('ob-sheet').classList.remove('open');
+  document.getElementById('ob-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ── CATEGORY BUTTONS ──
+document.getElementById('cat-rail').addEventListener('click', e => {
+  const btn = e.target.closest('.cat-btn');
+  if (!btn) return;
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  state.tag = btn.dataset.tag;
+  state.search = '';
+  document.getElementById('search').value = '';
+  load(true);
+});
+
+// ── SEARCH ──
+let searchTimer;
+document.getElementById('search').addEventListener('input', e => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    state.search = e.target.value.trim();
+    if (!state.search) {
+      renderGrid();
+      return;
+    }
+    // For local filter first; if few results, fetch more
+    renderGrid();
+  }, 250);
+});
+
+// ── AUTO REFRESH ──
+setInterval(() => { if (!state.loading && state.tag) load(true); }, 60_000);
+
+// ── INIT ──
+load(true);
+</script>
+</body>
+</html>
