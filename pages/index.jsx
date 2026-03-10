@@ -74,10 +74,19 @@ export default function Home() {
     return () => clearInterval(id);
   }, [tag]); // eslint-disable-line
 
-  const filtered = search
-    ? events.filter(e => (e.title || '').toLowerCase().includes(search.toLowerCase()) ||
-        (e.tags || []).some(t => (t.label || '').toLowerCase().includes(search.toLowerCase())))
-    : events;
+  // Filter out effectively-resolved events (any outcome ≥ 98%)
+  const isResolved = (event) => {
+    const parseJson = (s, fb) => { try { return JSON.parse(s || 'null') ?? fb; } catch { return fb; } };
+    return (event.markets || []).some(m => {
+      const prices = parseJson(m.outcomePrices, []);
+      return prices.some(p => parseFloat(p) >= 0.98);
+    });
+  };
+
+  const filtered = events
+    .filter(e => !isResolved(e))
+    .filter(e => !search || (e.title || '').toLowerCase().includes(search.toLowerCase()) ||
+        (e.tags || []).some(t => (t.label || '').toLowerCase().includes(search.toLowerCase())));
 
   return (
     <>
