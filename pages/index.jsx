@@ -142,7 +142,7 @@ export default function Home() {
       <div style={statsBar}>
         {/* Regular stats */}
         {[
-          [stats.loaded, 'Markets Loaded'],
+          [stats.loaded, 'Markets Pre-loaded'],
           ['14', 'Categories'],
           ['Polygon', 'For Now'],
         ].map(([n, l]) => (
