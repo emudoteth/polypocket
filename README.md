@@ -234,3 +234,18 @@ The `volume` field returned by `/v1/leaderboard` does **not** correspond to 24h 
 ```
 
 **Implication:** Don't label this as "24h Volume" or "Recent Volume" in the UI. "Vol" or "All-time Vol" is the safest label until Polymarket documents the field. The displayed `$XXK` / `$XXM` formatting is correct — the ambiguity is in the *time period*, not the unit.
+
+### Category Emojis are Hardcoded
+
+The emoji icons next to each category tag (🗳️ Politics, 🏆 Sports, 🦁 Iran, etc.) are defined in a static lookup map in `pages/index.jsx` and `components/MarketCard.jsx`:
+
+```js
+const tagEmoji = slug => ({
+  politics:'🗳️', sports:'🏆', crypto:'🔮', finance:'📈',
+  iran:'🦁', geopolitics:'🌐', tech:'💻', culture:'🎭',
+  economy:'💰', 'climate-science':'🌦️', elections:'🗳️',
+  entertainment:'🎬', nfl:'🏈', nba:'🏀',
+}[slug] || '🫧'); // fallback
+```
+
+The Gamma API returns tag slugs (`tag_slug: "politics"`) but no emoji or icon metadata. Any new tag from the API that isn't in this map falls back to 🫧. To support new tags properly, this map needs manual updates.
