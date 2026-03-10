@@ -22,7 +22,7 @@ const tagEmoji = slug => ({
   politics:'🗳️', sports:'🏆', crypto:'🔮', finance:'📈', geopolitics:'🌐',
   tech:'💻', culture:'🎭', economy:'💰', iran:'🌍', elections:'🗳️',
   entertainment:'🎬', nfl:'🏈', nba:'🏀', 'climate-science':'🌦️',
-}[slug] || '🫧');
+}[slug] || '🦁');
 
 const CATEGORIES = [
   { tag:'all', label:'🌐 All' }, { tag:'politics', label:'🗳️ Politics' },
@@ -46,13 +46,14 @@ export default function Home() {
   const [search, setSearch] = useState('');
   const [tradeTarget, setTradeTarget] = useState(null);
   const [detailEvent, setDetailEvent] = useState(null);
-  const [stats, setStats] = useState({ loaded: 0, vol: '—' });
+  const [stats, setStats] = useState({ loaded: 0, vol: '—', apiMs: null });
 
   const loadEvents = useCallback(async (reset = false) => {
     setLoading(true);
     const off = reset ? 0 : offset;
     try {
       const params = new URLSearchParams({ tag, offset: off, limit: PAGE });
+      const t0 = performance.now();
       const res = await fetch(`/api/events?${params}`);
       const data = await res.json();
       const next = reset ? data : [...events, ...data];
@@ -60,7 +61,7 @@ export default function Home() {
       setOffset(off + data.length);
       setExhausted(data.length < PAGE);
       const vol = next.reduce((s, e) => s + (parseFloat(e.volume24hr) || 0), 0);
-      setStats({ loaded: next.length, vol: fmtVol(vol) });
+      setStats({ loaded: next.length, vol: fmtVol(vol), apiMs: Math.round(performance.now() - t0) });
     } catch {}
     setLoading(false);
   }, [tag, offset, events]);
@@ -92,7 +93,7 @@ export default function Home() {
       {/* NAV */}
       <nav style={navStyle}>
         <a href="#" style={logoStyle}>
-            <img src="/logo.png" alt="PolyPocket" style={{ width:32, height:32, borderRadius:8, objectFit:'cover', flexShrink:0 }} />
+            <span style={{ fontSize:'1.5rem', lineHeight:1, flexShrink:0 }}>🦁</span>
             PolyPocket
           </a>
         <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
@@ -110,7 +111,7 @@ export default function Home() {
       <section style={heroStyle}>
         <div style={heroBadge}>✨ Live · No Paid Key · Powered by Polymarket</div>
         <h1 style={h1Style}>
-          <img src="/logo.png" alt="" style={{ width:64, height:64, borderRadius:14, objectFit:'cover', verticalAlign:'middle', marginRight:'0.4rem', display:'inline-block' }} />
+          <span style={{ fontSize:'3.2rem', verticalAlign:'middle', marginRight:'0.35rem', display:'inline-block', lineHeight:1 }}>🦁</span>
           PolyPocket
         </h1>
         <p style={heroSub}>
@@ -127,7 +128,7 @@ export default function Home() {
       <div style={statsBar}>
         {[
           [stats.loaded, 'Markets Loaded'],
-          [stats.vol, '24h Volume'],
+          [stats.apiMs != null ? `${stats.apiMs}ms` : '—', 'API Latency'],
           ['14', 'Categories'],
           ['Polygon', 'Network'],
         ].map(([n, l]) => (
@@ -256,7 +257,7 @@ export default function Home() {
         <div style={{ fontSize:'1rem', fontWeight:900, marginBottom:'0.4rem',
           background:'linear-gradient(135deg,var(--pink),var(--purple))',
           WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
-          🫧 PolyPocket
+          🦁 PolyPocket
         </div>
         <p style={{ fontSize:'0.75rem', color:'var(--muted)', maxWidth:420, margin:'0 auto 0.75rem', lineHeight:1.6 }}>
           A proof-of-concept integration built on the Polymarket CLOB API. All trading uses your connected wallet — non-custodial, on Polygon.
