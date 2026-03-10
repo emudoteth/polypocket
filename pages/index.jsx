@@ -252,20 +252,22 @@ export default function Home() {
           Built on the Polymarket CLOB API
         </div>
         <p style={{ fontSize:'0.78rem', color:'var(--lavender)', marginBottom:'1rem' }}>
-          Every number is live. Wallet-native signing via RainbowKit — your keys never leave your device.
+          Every number is live. Wallet connection via ethers.js + window.ethereum — your keys never leave your device.
         </p>
         <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
           {[
             ['gamma-api.polymarket.com/events', 'Active events with tags, prices, volumes. Paginated with offset + tag_slug.', 'https://docs.polymarket.com/api-reference/events/list-events'],
             ['clob.polymarket.com/book?token_id=…', 'Real-time order book depth (bids + asks) for any outcome token.', 'https://docs.polymarket.com/api-reference/market-data/get-order-book'],
-            ['clob.polymarket.com → createAndPostOrder()', 'EIP-712 signed orders — user signs locally, never shared.', 'https://docs.polymarket.com/api-reference/clients-sdks'],
+            ['polymarket.com/event/{slug} ↗', 'Trade execution deep-links to Polymarket — non-custodial, nothing touches our server.', 'https://docs.polymarket.com/api-reference/clients-sdks'],
           ].map(([path, desc, link]) => (
             <div key={path} style={{ display:'flex', gap:'0.6rem', alignItems:'flex-start',
               background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)',
               borderRadius:10, padding:'0.6rem 0.8rem' }}>
               <span style={{ fontSize:'0.62rem', fontWeight:800, letterSpacing:'0.07em',
-                color:'#a5b4fc', background:'rgba(165,180,252,0.15)', padding:'0.12rem 0.45rem',
-                borderRadius:4, whiteSpace:'nowrap', marginTop:1 }}>GET</span>
+                color: path.includes('↗') ? '#86efac' : '#a5b4fc',
+                background: path.includes('↗') ? 'rgba(134,239,172,0.15)' : 'rgba(165,180,252,0.15)',
+                padding:'0.12rem 0.45rem',
+                borderRadius:4, whiteSpace:'nowrap', marginTop:1 }}>{path.includes('↗') ? 'LINK' : 'GET'}</span>
               <div>
                 <div style={{ fontSize:'0.75rem', fontFamily:'monospace', color:'white', fontWeight:600 }}>{path}</div>
                 <div style={{ fontSize:'0.7rem', color:'var(--lavender)', marginTop:'0.15rem' }}>{desc}</div>
