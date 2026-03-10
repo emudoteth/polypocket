@@ -47,11 +47,14 @@ export default function Portfolio({ address, onTrade }) {
     if (t === 'leaderboard') loadLeaderboard();
   };
 
+  // Filter out dust / $0 positions
+  const activePositions = positions?.filter(p => parseFloat(p.currentValue) >= 0.01 && parseFloat(p.size) >= 0.01) || [];
+
   // Summary stats
-  const totalValue     = positions?.reduce((s, p) => s + (parseFloat(p.currentValue) || 0), 0) || 0;
-  const totalPnl       = positions?.reduce((s, p) => s + (parseFloat(p.cashPnl) || 0), 0) || 0;
-  const totalRealized  = positions?.reduce((s, p) => s + (parseFloat(p.realizedPnl) || 0), 0) || 0;
-  const openCount      = positions?.filter(p => !p.redeemable).length || 0;
+  const totalValue     = activePositions.reduce((s, p) => s + (parseFloat(p.currentValue) || 0), 0) || 0;
+  const totalPnl       = activePositions.reduce((s, p) => s + (parseFloat(p.cashPnl) || 0), 0) || 0;
+  const totalRealized  = activePositions.reduce((s, p) => s + (parseFloat(p.realizedPnl) || 0), 0) || 0;
+  const openCount      = activePositions.filter(p => !p.redeemable).length || 0;
 
   if (!address) return null;
 
@@ -120,7 +123,7 @@ export default function Portfolio({ address, onTrade }) {
             </div>
           ) : error ? (
             <div style={emptyState}>Failed to load positions</div>
-          ) : !positions?.length ? (
+          ) : !activePositions.length ? (
             <div style={emptyState}>
               <div style={{ fontSize:'1.5rem', marginBottom:'0.5rem' }}>🫧</div>
               <div style={{ fontWeight:700, marginBottom:'0.25rem' }}>No open positions</div>
@@ -130,44 +133,84 @@ export default function Portfolio({ address, onTrade }) {
             </div>
           ) : (
             <div>
-              {positions.map((p, i) => {
-                const pnl     = parseFloat(p.cashPnl) || 0;
-                const pnlPct  = parseFloat(p.percentPnl) || 0;
-                const curVal  = parseFloat(p.currentValue) || 0;
-                const curPrc  = parseFloat(p.curPrice) || 0;
-                const isGreen = pnl >= 0;
+              {activePositions.map((p, i) => {
+                const pnl      = parseFloat(p.cashPnl) || 0;
+                const pnlPct   = parseFloat(p.percentPnl) || 0;
+                const curVal   = parseFloat(p.currentValue) || 0;
+                const curPrc   = parseFloat(p.curPrice) || 0;
+                const avgPrc   = parseFloat(p.avgPrice) || 0;
+                const isGreen  = pnl >= 0;
+                const isYes    = p.outcome?.toLowerCase() === 'yes';
+                // implied probability bar: curPrc 0→1
+                const barPct   = Math.min(100, Math.max(0, curPrc * 100));
 
                 return (
                   <div key={i} style={posRow}>
-                    <div style={{ display:'flex', gap:'0.6rem', alignItems:'flex-start', flex:1, minWidth:0 }}>
-                      {p.icon && (
-                        <img src={p.icon} alt="" style={{ width:32, height:32, borderRadius:8, objectFit:'cover', flexShrink:0 }}
-                          onError={e => e.target.style.display='none'} />
-                      )}
-                      <div style={{ minWidth:0 }}>
+                    {/* Icon */}
+                    {p.icon && (
+                      <img src={p.icon} alt="" style={{ width:36, height:36, borderRadius:8, objectFit:'cover', flexShrink:0, marginTop:2 }}
+                        onError={e => e.target.style.display='none'} />
+                    )}
+
+                    <div style={{ flex:1, minWidth:0 }}>
+                      {/* Title + link */}
+                      <div style={{ display:'flex', alignItems:'center', gap:'0.35rem', marginBottom:'0.2rem' }}>
                         <div style={{ fontSize:'0.8rem', fontWeight:700, overflow:'hidden',
-                          textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
                           {p.title}
                         </div>
-                        <div style={{ display:'flex', gap:'0.4rem', marginTop:'0.2rem', flexWrap:'wrap' }}>
-                          <span style={outcomeBadge(p.outcome)}>
-                            {p.outcome}
+                        <a href={`https://polymarket.com/event/${p.eventSlug}`}
+                          target="_blank" rel="noreferrer"
+                          style={{ fontSize:'0.65rem', color:'var(--purple)', textDecoration:'none',
+                            border:'1px solid var(--purple)', borderRadius:4, padding:'0.1rem 0.3rem',
+                            flexShrink:0, whiteSpace:'nowrap' }}>
+                          ↗ Market
+                        </a>
+                      </div>
+
+                      {/* Chips */}
+                      <div style={{ display:'flex', gap:'0.35rem', flexWrap:'wrap', marginBottom:'0.4rem' }}>
+                        <span style={outcomeBadge(p.outcome)}>{p.outcome}</span>
+                        <span style={metaChip}>{fmtSize(p.size)} shares</span>
+                        <span style={metaChip}>avg {(avgPrc*100).toFixed(1)}¢</span>
+                        {p.endDate && <span style={metaChip}>⏱ {fmtDate(p.endDate)}</span>}
+                        {p.negativeRisk && <span style={{ ...metaChip, color:'var(--purple)', borderColor:'var(--purple)' }}>neg-risk</span>}
+                      </div>
+
+                      {/* Market price bar */}
+                      <div style={{ marginBottom:'0.3rem' }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'0.18rem' }}>
+                          <span style={{ fontSize:'0.65rem', color:'var(--muted)' }}>
+                            Current market: <strong style={{ color: isYes ? 'var(--green)' : 'var(--red)' }}>{barPct.toFixed(1)}¢</strong>
                           </span>
-                          <span style={metaChip}>{fmtSize(p.size)} shares</span>
-                          <span style={metaChip}>avg {(parseFloat(p.avgPrice)*100).toFixed(1)}¢</span>
-                          {p.endDate && <span style={metaChip}>⏱ {fmtDate(p.endDate)}</span>}
+                          <span style={{ fontSize:'0.65rem', color:'var(--muted)' }}>
+                            entry {(avgPrc*100).toFixed(1)}¢
+                            {' '}<span style={{ color: isGreen ? 'var(--green)' : 'var(--red)', fontWeight:700 }}>
+                              {isGreen ? '▲' : '▼'} {Math.abs(curPrc - avgPrc < 0 ? (avgPrc - curPrc)*100 : (curPrc - avgPrc)*100).toFixed(1)}¢
+                            </span>
+                          </span>
+                        </div>
+                        <div style={{ height:5, borderRadius:3, background:'var(--bg)', overflow:'hidden', position:'relative' }}>
+                          {/* Entry marker */}
+                          <div style={{ position:'absolute', top:0, bottom:0, left:`${(avgPrc*100)}%`,
+                            width:2, background:'var(--muted)', zIndex:2, transform:'translateX(-50%)' }} />
+                          {/* Current price fill */}
+                          <div style={{ height:'100%', width:`${barPct}%`,
+                            background: isYes ? 'var(--green)' : 'var(--red)',
+                            borderRadius:3, transition:'width .4s ease' }} />
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ textAlign:'right', flexShrink:0 }}>
-                      <div style={{ fontSize:'0.88rem', fontWeight:800 }}>${curVal.toFixed(2)}</div>
+                    {/* Right col: value + P&L */}
+                    <div style={{ textAlign:'right', flexShrink:0, minWidth:72 }}>
+                      <div style={{ fontSize:'0.9rem', fontWeight:800 }}>${curVal.toFixed(2)}</div>
                       <div style={{ fontSize:'0.72rem', fontWeight:700,
                         color: isGreen ? 'var(--green)' : 'var(--red)' }}>
-                        {isGreen ? '+' : ''}{fmtUSD(pnl)} ({fmtPct(pnlPct)})
+                        {isGreen ? '+' : ''}{fmtUSD(pnl)}
                       </div>
-                      <div style={{ fontSize:'0.68rem', color:'var(--muted)', marginTop:'0.15rem' }}>
-                        now {(curPrc*100).toFixed(1)}¢
+                      <div style={{ fontSize:'0.68rem', color: isGreen ? 'var(--green)' : 'var(--red)' }}>
+                        ({fmtPct(pnlPct)})
                       </div>
                     </div>
                   </div>
