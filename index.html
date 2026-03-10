@@ -758,8 +758,8 @@
 
 <script>
 // ─── CONFIG ───
-const GAMMA_API = 'https://gamma-api.polymarket.com';
-const CLOB_API  = 'https://clob.polymarket.com';
+const GAMMA_API = '';
+const CLOB_API  = '';
 const MARKETS_LIMIT = 30;
 
 // ─── STATE ───
@@ -804,7 +804,7 @@ async function fetchMarkets() {
       ascending: 'false',
       closed: 'false'
     });
-    const res = await fetch(`${GAMMA_API}/markets?${params}`);
+    const res = await fetch('/api/markets');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -817,7 +817,7 @@ async function fetchMarkets() {
 // ─── FETCH ORDERBOOK ───
 async function fetchOrderBook(tokenId) {
   try {
-    const res = await fetch(`${CLOB_API}/book?token_id=${tokenId}`);
+    const res = await fetch(`/api/book?token_id=${tokenId}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (e) {
