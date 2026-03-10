@@ -140,9 +140,9 @@ export default function Home() {
 
       {/* STATS */}
       <div style={statsBar}>
+        {/* Regular stats */}
         {[
           [stats.loaded, 'Markets Loaded'],
-          [stats.apiMs != null ? `${stats.apiMs}ms` : '—', 'API Latency'],
           ['14', 'Categories'],
           ['Polygon', 'Network'],
         ].map(([n, l]) => (
@@ -152,6 +152,18 @@ export default function Home() {
             <div style={{ fontSize:'0.68rem', color:'var(--muted)', fontWeight:500, whiteSpace:'nowrap' }}>{l}</div>
           </div>
         ))}
+        {/* API Latency — color-coded pulse */}
+        <div style={{ textAlign:'center', padding:'0.85rem 1rem', borderRight:'1px solid var(--border)' }}>
+          <div style={{
+            fontSize:'1.1rem', fontWeight:800, whiteSpace:'nowrap',
+            color: stats.apiMs == null ? 'var(--muted)'
+                 : stats.apiMs < 300   ? '#16a34a'
+                 : stats.apiMs < 500   ? '#ca8a04'
+                 : '#dc2626',
+            animation: stats.apiMs != null ? 'latencyPulse 2s ease-in-out infinite' : 'none',
+          }}>{stats.apiMs != null ? `${stats.apiMs}ms` : '—'}</div>
+          <div style={{ fontSize:'0.68rem', color:'var(--muted)', fontWeight:500, whiteSpace:'nowrap' }}>API Latency</div>
+        </div>
       </div>
 
       {/* CATEGORY RAIL */}
