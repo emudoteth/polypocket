@@ -108,13 +108,13 @@ export default function MarketDetail({ event: eventProp, onClose, onTrade }) {
   const [chartData, setChartData]   = useState(null);
   const [chartErr, setChartErr]     = useState(false);
   const [chartLoading, setLoading]  = useState(true);
-  const [fullEvent, setFullEvent]   = useState(null);  // hydrated event with markets
-  const abortRef = useRef(null);
+  const [fullEvent, setFullEvent]   = useState(null);
+  const intervalRef = useRef('1W'); // track current interval without stale closure
 
   // Use hydrated event if available, otherwise prop
   const event = fullEvent || eventProp;
 
-  // If markets are missing or empty, fetch full event from Gamma API
+  // Hydrate markets if missing
   useEffect(() => {
     const hasMkts = Array.isArray(eventProp?.markets) && eventProp.markets.length > 0;
     if (!hasMkts && eventProp?.id) {
@@ -126,92 +126,98 @@ export default function MarketDetail({ event: eventProp, onClose, onTrade }) {
   }, [eventProp?.id]);
 
   const outcomes  = buildOutcomes(event);
-  // For chart: show first 4 outcomes that have token IDs
   const chartable = outcomes.filter(o => o.tokenId && !o.isNo).slice(0, 4);
+  // stable key: changes when the set of token IDs changes (new event opened, or hydrated)
+  const chartKey  = chartable.map(o => o.tokenId).join(',');
 
-  const loadChart = async (iv) => {
-    if (!chartable.length) { setLoading(false); return; }
-    if (abortRef.current) abortRef.current = false;
-    const token = {};
-    abortRef.current = token;
+  // ── Chart fetch — runs whenever chartKey or interval changes ─────────
+  useEffect(() => {
+    if (!chartKey) { setLoading(false); return; }
 
+    let cancelled = false;
     setLoading(true);
     setChartErr(false);
     setChartData(null);
 
-    try {
-      const ivParam = IV_PARAM[iv];
-      const results = await Promise.all(
-        chartable.map(o =>
-          fetchHistory(o.tokenId, ivParam)
-            .then(h => ({ name: o.isMulti ? (o.market.question?.replace(/^Will /i,'').replace(/\?$/,'').slice(0,30) || o.name) : o.name, history: h }))
-            .catch(() => ({ name: o.name, history: [] }))
-        )
-      );
+    const iv = intervalRef.current;
+    const ivParam = IV_PARAM[iv];
 
-      if (token !== abortRef.current) return; // stale
+    const tokenNames = chartable.map(o => ({
+      tokenId: o.tokenId,
+      name: o.isMulti
+        ? (o.market?.question?.replace(/^Will /i,'').replace(/\?$/,'').slice(0,30) || o.name)
+        : o.name,
+    }));
 
-      // If all histories empty, try 'max' as fallback
-      const allEmpty = results.every(r => !r.history.length);
-      if (allEmpty && iv !== 'ALL') {
-        const fallback = await Promise.all(
-          chartable.map(o =>
-            fetchHistory(o.tokenId, 'max')
-              .then(h => ({ name: results.find(r => r.name)?.name || o.name, history: h }))
-              .catch(() => ({ name: o.name, history: [] }))
+    async function run() {
+      try {
+        let results = await Promise.all(
+          tokenNames.map(({ tokenId, name }) =>
+            fetchHistory(tokenId, ivParam)
+              .then(h => ({ name, history: h }))
+              .catch(() => ({ name, history: [] }))
           )
         );
-        if (token !== abortRef.current) return;
-        buildAndSet(fallback);
-        return;
+        if (cancelled) return;
+
+        // Fallback to max if all empty
+        if (results.every(r => !r.history.length) && iv !== 'ALL') {
+          results = await Promise.all(
+            tokenNames.map(({ tokenId, name }) =>
+              fetchHistory(tokenId, 'max')
+                .then(h => ({ name, history: h }))
+                .catch(() => ({ name, history: [] }))
+            )
+          );
+          if (cancelled) return;
+        }
+
+        if (results.every(r => !r.history.length)) {
+          setChartErr(true);
+          setLoading(false);
+          return;
+        }
+
+        // Build merged chart rows
+        const allTs = new Set();
+        results.forEach(({ history }) => history.forEach(pt => allTs.add(pt.t)));
+        const sorted  = Array.from(allTs).sort((a, b) => a - b);
+        const step    = Math.max(1, Math.floor(sorted.length / 60));
+        const sampled = sorted.filter((_, i) => i % step === 0 || i === sorted.length - 1);
+        const names   = results.map(r => r.name);
+
+        const merged = sampled.map(t => {
+          const d = new Date(t * 1000);
+          const row = { t, label: d.toLocaleDateString('en-US',{ month:'short', day:'numeric' }) };
+          results.forEach(({ name, history }) => {
+            if (!history.length) return;
+            const exact = history.find(h => h.t === t);
+            const pt    = exact || history.reduce((b, h) => Math.abs(h.t-t) < Math.abs(b.t-t) ? h : b);
+            if (pt?.p != null) row[name] = parseFloat((pt.p * 100).toFixed(1));
+          });
+          return row;
+        });
+
+        // Forward-fill
+        names.forEach(name => {
+          let last = null;
+          merged.forEach(row => {
+            if (row[name] !== undefined) last = row[name];
+            else if (last !== null) row[name] = last;
+          });
+        });
+
+        if (!cancelled) setChartData({ rows: merged, names });
+      } catch {
+        if (!cancelled) setChartErr(true);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      buildAndSet(results);
-    } catch (e) {
-      if (token === abortRef.current) setChartErr(true);
-    } finally {
-      if (token === abortRef.current) setLoading(false);
     }
-  };
 
-  function buildAndSet(results) {
-    const allTs = new Set();
-    results.forEach(({ history }) => history.forEach(pt => allTs.add(pt.t)));
-    const sorted = Array.from(allTs).sort((a, b) => a - b);
-
-    // Downsample to ~60 points for perf
-    const step = Math.max(1, Math.floor(sorted.length / 60));
-    const sampled = sorted.filter((_, i) => i % step === 0 || i === sorted.length - 1);
-
-    const names = results.map(r => r.name);
-    const merged = sampled.map(t => {
-      const d = new Date(t * 1000);
-      const label = d.toLocaleDateString('en-US',{ month:'short', day:'numeric' });
-      const row = { t, label };
-      results.forEach(({ name, history }) => {
-        const pt = history.find(h => h.t === t) || history.reduce((best, h) =>
-          Math.abs(h.t - t) < Math.abs(best.t - t) ? h : best
-        , history[0] || { t: 0, p: null });
-        if (pt?.p !== null && pt?.p !== undefined) row[name] = parseFloat((pt.p * 100).toFixed(1));
-      });
-      return row;
-    });
-
-    // Forward-fill nulls
-    names.forEach(name => {
-      let last = null;
-      merged.forEach(row => {
-        if (row[name] !== undefined) last = row[name];
-        else if (last !== null) row[name] = last;
-      });
-    });
-
-    setChartData({ rows: merged, names });
-  }
-
-  useEffect(() => {
-    loadChart('1W');
-    return () => { abortRef.current = null; };
-  }, [event.id]); // eslint-disable-line
+    run();
+    return () => { cancelled = true; };
+  }, [chartKey, interval]); // re-run when tokens change OR interval changes
 
   useEffect(() => {
     const h = e => { if (e.key === 'Escape') onClose(); };
@@ -289,7 +295,7 @@ export default function MarketDetail({ event: eventProp, onClose, onTrade }) {
                     background: interval === iv ? '#7c3aed' : 'transparent',
                     color: interval === iv ? 'white' : '#6b7280',
                   }}
-                  onClick={() => { setIntervalVal(iv); loadChart(iv); }}
+                  onClick={() => { intervalRef.current = iv; setIntervalVal(iv); }}
                 >{iv}</button>
               ))}
             </div>
