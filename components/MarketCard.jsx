@@ -48,7 +48,7 @@ const fmtVol = n => {
 
 const tagEmoji = slug => ({
   politics:'🗳️', sports:'🏆', crypto:'🔮', finance:'📈', geopolitics:'🌐',
-  tech:'💻', culture:'🎭', economy:'💰', iran:'🌍', elections:'🗳️',
+  tech:'💻', culture:'🎭', economy:'💰', iran:'🦁', elections:'🗳️',
   entertainment:'🎬', nfl:'🏈', nba:'🏀', 'climate-science':'🌦️',
 }[slug] || '🫧');
 
