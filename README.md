@@ -181,3 +181,27 @@ The trade modal collects price/size and opens `polymarket.com/event/{slug}` for 
 2. Browser: `signer._signTypedData(domain, types, value)` → signed order
 3. Browser: `POST /api/submit-order` with signed order + funder address
 4. Server: add L2 HMAC headers, forward to `POST https://clob.polymarket.com/order`
+
+---
+
+## Known Data Quality Issues
+
+### Leaderboard: Spam / Zero-Volume Entries
+
+The `/v1/leaderboard` endpoint returns unfiltered data from the Data API. This includes bot accounts and spam usernames with $0 volume that have somehow made it onto the leaderboard (e.g. `"2121212121212121212121212"` at rank #5 with `Vol: $0K`).
+
+**Root cause:** Polymarket's leaderboard API does not enforce minimum volume or username sanity. Entries with `volume: 0` (or near-zero) and nonsensical names (all-numeric, repeated characters) appear legitimately in the response.
+
+**Observed example:**
+```
+#5  2121212121212121212121212   Vol: $0K
+```
+
+**Recommended client-side fix:**
+```js
+const leaderboard = raw
+  .filter(entry => parseFloat(entry.volume || 0) >= 100)   // drop $0 / dust entries
+  .filter(entry => !/^[\d\s]{6,}$/.test(entry.name || '')); // drop all-numeric spam names
+```
+
+**Status:** Not fixed yet — currently displayed as-is from the API. Worth filtering before shipping.
