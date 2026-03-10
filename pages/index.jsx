@@ -111,8 +111,11 @@ export default function Home() {
 
       {/* HERO */}
       <section style={heroStyle}>
-        <div style={heroBadge}>✨ Live · No API Key · Powered by Polymarket</div>
-        <h1 style={h1Style}>PolyPocket 🫧</h1>
+        <div style={heroBadge}>✨ Live · No Paid Key · Powered by Polymarket</div>
+        <h1 style={h1Style}>
+          <img src="/logo.png" alt="" style={{ width:64, height:64, borderRadius:14, objectFit:'cover', verticalAlign:'middle', marginRight:'0.4rem', display:'inline-block' }} />
+          PolyPocket
+        </h1>
         <p style={heroSub}>
           The whole prediction market, <strong style={{ color:'var(--purple)' }}>in your pocket.</strong>
           {' '}Live markets, real-time prices, and order book depth — with wallet-native trading.
