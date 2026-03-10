@@ -3,6 +3,8 @@ import Head from 'next/head';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
 import TradeModal from '../components/TradeModal';
+import MarketCard from '../components/MarketCard';
+import MarketDetail from '../components/MarketDetail';
 
 const PAGE = 48;
 
@@ -31,107 +33,6 @@ const CATEGORIES = [
   { tag:'nba', label:'🏀 NBA' },
 ];
 
-// ── Market Card ──
-function MarketCard({ event, onTrade }) {
-  const markets = event.markets || [];
-  const title = event.title || event.slug || 'Unknown';
-  const vol = parseFloat(event.volume24hr) || 0;
-  const tag = (event.tags || [])[0];
-  const tagLabel = tag ? (tag.label || tag.slug) : 'General';
-  const emoji = (() => {
-    for (const t of (event.tags || [])) {
-      const e = tagEmoji((t.slug || '').toLowerCase());
-      if (e !== '🫧') return e;
-    }
-    return '🫧';
-  })();
-  const img = event.image || event.icon;
-
-  const getTokenId = (market) => {
-    try { return JSON.parse(market.clobTokenIds || '[]')[0] || ''; } catch { return ''; }
-  };
-
-  const outcomes = markets.slice(0, markets.length <= 2 ? 2 : 3).map((m, i) => {
-    const price = parseFloat(m.lastTradePrice || 0.5);
-    const name = (() => { try { return JSON.parse(m.outcomes || '["Yes","No"]')[i <= 1 ? 0 : 0] || m.question?.slice(0, 28) || 'Yes'; } catch { return m.question?.slice(0, 28) || 'Yes'; } })();
-    return { name, price, tokenId: getTokenId(m) };
-  });
-
-  return (
-    <div style={cardStyle}>
-      <div style={{ display:'flex', gap:'0.65rem', alignItems:'flex-start', marginBottom:'0.75rem' }}>
-        {img
-          ? <img src={img} alt="" style={imgStyle} onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
-          : null}
-        <div style={{ ...emojiStyle, display: img ? 'none' : 'flex' }}>{emoji}</div>
-        <div style={{ fontSize:'0.875rem', fontWeight:700, lineHeight:1.4,
-          display:'-webkit-box', WebkitLineClamp:3, WebkitBoxOrient:'vertical', overflow:'hidden' }}>
-          {title}
-        </div>
-      </div>
-
-      {/* Outcomes */}
-      <div style={{ display:'flex', flexDirection:'column', gap:'0.4rem', marginBottom:'0.75rem' }}>
-        {outcomes.map((o, i) => {
-          const p = Math.round(o.price * 100);
-          const color = o.price > 0.65 ? 'var(--green)' : o.price < 0.35 ? 'var(--red)' : 'var(--purple)';
-          return (
-            <div key={i}>
-              <div style={{ display:'flex', justifyContent:'space-between', fontSize:'0.78rem', marginBottom:'0.2rem' }}>
-                <span style={{ color:'var(--muted)', fontWeight:500 }}>{o.name}</span>
-                <span style={{ fontWeight:800, color }}>{p}%</span>
-              </div>
-              <div style={{ height:5, background:'var(--border)', borderRadius:99, overflow:'hidden' }}>
-                <div style={{ height:'100%', width:`${p}%`, borderRadius:99,
-                  background:'linear-gradient(90deg, var(--pink), var(--purple))',
-                  transition:'width .4s ease' }} />
-              </div>
-            </div>
-          );
-        })}
-        {markets.length > 3 && (
-          <div style={{ fontSize:'0.7rem', color:'var(--muted)' }}>+{markets.length - 3} more outcomes</div>
-        )}
-      </div>
-
-      {/* Footer */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
-        fontSize:'0.72rem', color:'var(--muted)', marginBottom: outcomes.length > 0 ? '0.75rem' : 0 }}>
-        <span style={{ fontWeight:600 }}>Vol: {fmtVol(vol)}</span>
-        <span style={{ background:'var(--lilac)', color:'var(--purple)', fontSize:'0.65rem', fontWeight:700,
-          padding:'0.18rem 0.5rem', borderRadius:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>
-          {tagLabel}
-        </span>
-        <span style={{ display:'flex', alignItems:'center', gap:4, fontWeight:600, color:'var(--green)' }}>
-          <span style={{ width:5, height:5, borderRadius:'50%', background:'var(--green)', display:'inline-block', animation:'pulse 2s infinite' }} />
-          Live
-        </span>
-      </div>
-
-      {/* Trade buttons */}
-      {outcomes.length > 0 && outcomes[0].tokenId && (
-        <div style={{ display:'flex', gap:'0.5rem' }}>
-          {outcomes.slice(0, 2).map((o, i) => (
-            <button
-              key={i}
-              style={{
-                flex:1, padding:'0.45rem 0.5rem', borderRadius:99, fontSize:'0.78rem', fontWeight:700,
-                border:'1.5px solid', cursor:'pointer', transition:'all .18s',
-                background: i === 0 ? '#dcfce7' : '#fef2f2',
-                color: i === 0 ? 'var(--green)' : 'var(--red)',
-                borderColor: i === 0 ? '#86efac' : '#fca5a5',
-              }}
-              onClick={() => onTrade({ event, tokenID: o.tokenId, outcomeName: o.name, initialPrice: o.price })}
-            >
-              {i === 0 ? '🟢' : '🔴'} Buy {o.name}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Main Page ──
 export default function Home() {
   const { isConnected } = useAccount();
@@ -142,6 +43,7 @@ export default function Home() {
   const [exhausted, setExhausted] = useState(false);
   const [search, setSearch] = useState('');
   const [tradeTarget, setTradeTarget] = useState(null);
+  const [detailEvent, setDetailEvent] = useState(null);
   const [stats, setStats] = useState({ loaded: 0, vol: '—' });
 
   const loadEvents = useCallback(async (reset = false) => {
@@ -281,7 +183,7 @@ export default function Home() {
           <>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:'0.75rem' }}>
               {filtered.map(ev => (
-                <MarketCard key={ev.id} event={ev} onTrade={setTradeTarget} />
+                <MarketCard key={ev.id} event={ev} onTrade={setTradeTarget} onDetails={setDetailEvent} />
               ))}
               {filtered.length === 0 && !loading && (
                 <div style={{ gridColumn:'1/-1', textAlign:'center', padding:'2rem', color:'var(--muted)', fontSize:'.88rem' }}>
@@ -357,6 +259,11 @@ export default function Home() {
           ))}
         </div>
       </footer>
+
+      {/* DETAIL MODAL */}
+      {detailEvent && (
+        <MarketDetail event={detailEvent} onClose={() => setDetailEvent(null)} onTrade={t => { setDetailEvent(null); setTradeTarget(t); }} />
+      )}
 
       {/* TRADE MODAL */}
       {tradeTarget && (
