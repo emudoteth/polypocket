@@ -144,7 +144,7 @@ export default function Home() {
         {[
           [stats.loaded, 'Markets Loaded'],
           ['14', 'Categories'],
-          ['Polygon', 'Network'],
+          ['Polygon', 'For Now'],
         ].map(([n, l]) => (
           <div key={l} style={{ textAlign:'center', padding:'0.85rem 1rem', borderRight:'1px solid var(--border)' }}>
             <div style={{ fontSize:'1.1rem', fontWeight:800, background:'linear-gradient(135deg,var(--pink),var(--purple))',
