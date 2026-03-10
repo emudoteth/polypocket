@@ -20,7 +20,7 @@ const fmtVol = n => {
 const pct = v => { const n = parseFloat(v); return isNaN(n) ? '—' : `${Math.round(n * 100)}%`; };
 const tagEmoji = slug => ({
   politics:'🗳️', sports:'🏆', crypto:'🔮', finance:'📈', geopolitics:'🌐',
-  tech:'💻', culture:'🎭', economy:'💰', iran:'🌍', elections:'🗳️',
+  tech:'💻', culture:'🎭', economy:'💰', iran:'🇮🇷', elections:'🗳️',
   entertainment:'🎬', nfl:'🏈', nba:'🏀', 'climate-science':'🌦️',
 }[slug] || '🦁');
 
