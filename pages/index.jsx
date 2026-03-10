@@ -109,18 +109,18 @@ export default function Home() {
 
       {/* HERO */}
       <section style={heroStyle}>
-        {/* Decorative side images — hidden on mobile, visible on wider screens */}
+        {/* Decorative side images — blend into gradient bg */}
         <img src="/hero-deco.png" aria-hidden="true" style={{
           position:'absolute', left:0, bottom:0,
-          width:'clamp(140px,18vw,280px)', opacity:0.82,
+          width:'clamp(180px,22vw,340px)', opacity:0.9,
           pointerEvents:'none', userSelect:'none',
-          display:'block',
+          mixBlendMode:'multiply', display:'block',
         }} />
         <img src="/hero-deco.png" aria-hidden="true" style={{
           position:'absolute', right:0, bottom:0,
-          width:'clamp(140px,18vw,280px)', opacity:0.82,
+          width:'clamp(180px,22vw,340px)', opacity:0.9,
           pointerEvents:'none', userSelect:'none',
-          transform:'scaleX(-1)',
+          transform:'scaleX(-1)', mixBlendMode:'multiply',
           display:'block',
         }} />
         <div style={heroBadge}>✨ Live · No Paid Key · Powered by Polymarket</div>
