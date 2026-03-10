@@ -27,7 +27,7 @@ const tagEmoji = slug => ({
 const CATEGORIES = [
   { tag:'all', label:'🌐 All' }, { tag:'politics', label:'🗳️ Politics' },
   { tag:'sports', label:'🏆 Sports' }, { tag:'crypto', label:'🔮 Crypto' },
-  { tag:'iran', label:'🌍 Iran' }, { tag:'finance', label:'📈 Finance' },
+  { tag:'iran', label:'🦁 Iran' }, { tag:'finance', label:'📈 Finance' },
   { tag:'geopolitics', label:'🌐 Geopolitics' }, { tag:'tech', label:'💻 Tech' },
   { tag:'culture', label:'🎭 Culture' }, { tag:'economy', label:'💰 Economy' },
   { tag:'climate-science', label:'🌦️ Climate' }, { tag:'elections', label:'🗳️ Elections' },
