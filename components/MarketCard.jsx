@@ -23,7 +23,7 @@ export function parseOutcomes(event) {
   }
 
   // Multi-outcome event → each child market is one outcome
-  return markets.slice(0, 4).map((m) => {
+  const raw = markets.slice(0, 4).map((m) => {
     const names  = parseJson(m.outcomes, ['Yes']);
     const prices = parseJson(m.outcomePrices, [0.5]);
     const tokens = parseJson(m.clobTokenIds, []);
@@ -37,6 +37,42 @@ export function parseOutcomes(event) {
       ? [{ name: `+${markets.length - 4} more`, price: null, tokenId: '' }]
       : []
   );
+
+  return shortenOutcomes(raw);
+}
+
+/**
+ * Strip the longest common prefix + suffix from all outcome names
+ * so "Will Donald Trump win the nomination?" → "Donald Trump"
+ */
+function shortenOutcomes(outcomes) {
+  const names = outcomes.filter(o => o.price !== null).map(o => o.name.toLowerCase());
+  if (names.length < 2) return outcomes;
+
+  // Common prefix
+  let pfx = 0;
+  while (pfx < names[0].length && names.every(n => n[pfx] === names[0][pfx])) pfx++;
+  // Walk back to last word boundary
+  while (pfx > 0 && names[0][pfx - 1] !== ' ') pfx--;
+
+  // Common suffix
+  const rev = names.map(n => n.split('').reverse().join(''));
+  let sfx = 0;
+  while (sfx < rev[0].length && rev.every(n => n[sfx] === rev[0][sfx])) sfx++;
+  while (sfx > 0 && rev[0][sfx - 1] !== ' ') sfx--;
+
+  return outcomes.map(o => {
+    if (o.price === null) return o; // "+N more" row
+    let name = o.name;
+    const stripped = name.slice(pfx, sfx ? name.length - sfx : undefined).trim();
+    if (stripped.length >= 2) {
+      // Capitalise first letter
+      name = stripped.charAt(0).toUpperCase() + stripped.slice(1);
+      // Remove trailing punctuation
+      name = name.replace(/[?.,!]+$/, '');
+    }
+    return { ...o, name };
+  });
 }
 
 const fmtVol = n => {
@@ -134,7 +170,7 @@ export default function MarketCard({ event, onTrade, onDetails }) {
         </span>
       </div>
 
-      {/* Buy buttons — stop propagation so they don't open the detail modal */}
+      {/* Buy buttons */}
       {tradeable.length > 0 && (
         <div style={{ display:'flex', gap:'0.5rem' }} onClick={e => e.stopPropagation()}>
           {tradeable.slice(0, 2).map((o, i) => (
