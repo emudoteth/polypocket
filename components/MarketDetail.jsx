@@ -1,13 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
-import { parseOutcomes } from './MarketCard';
+import { useState, useEffect, useRef } from 'react';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
-  Tooltip, Legend, CartesianGrid,
+  Tooltip, CartesianGrid,
 } from 'recharts';
 
-const INTERVALS = ['1H','6H','1D','1W','1M','ALL'];
-const intervalParam = { '1H':'1h','6H':'6h','1D':'1d','1W':'1w','1M':'1m','ALL':'max' };
-const COLORS = ['#2563eb','#7c3aed','#e91e8c','#059669','#d97706','#dc2626'];
+// ── Helpers ──────────────────────────────────────────────────────────
+const parseArr = (s, fallback = []) => {
+  if (Array.isArray(s)) return s;
+  try { const r = JSON.parse(s); return Array.isArray(r) ? r : fallback; }
+  catch { return fallback; }
+};
 
 const fmtVol = n => {
   if (!n || isNaN(n)) return '—';
@@ -16,107 +18,195 @@ const fmtVol = n => {
   return `$${n.toFixed(0)}`;
 };
 const fmtCents = p => {
-  if (p === null || p === undefined || isNaN(p)) return '—';
   const c = parseFloat(p) * 100;
-  return c < 1 ? `${c.toFixed(1)}¢` : `${c.toFixed(1)}¢`;
-};
-const fmtPct = p => {
-  const n = parseFloat(p);
-  if (isNaN(n)) return '—';
-  if (n < 0.01) return '<1%';
-  if (n > 0.99) return '>99%';
-  return `${Math.round(n * 100)}%`;
+  if (isNaN(c)) return '—';
+  return `${c < 10 ? c.toFixed(1) : Math.round(c)}¢`;
 };
 const fmtDate = d => {
   if (!d) return '—';
-  return new Date(d).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
-};
-const fmtChartTs = t => {
-  const d = new Date(t * 1000);
-  return d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+  try { return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+  catch { return '—'; }
 };
 
+const INTERVALS  = ['1H','6H','1D','1W','1M','ALL'];
+const IV_PARAM   = { '1H':'1h','6H':'6h','1D':'1d','1W':'1w','1M':'1m','ALL':'max' };
+const COLORS     = ['#2563eb','#7c3aed','#e91e8c','#059669','#d97706','#dc2626','#0891b2'];
+
+// ── Build outcome list directly from event markets ────────────────────
+function buildOutcomes(event) {
+  const markets = event.markets || [];
+  if (!markets.length) return [];
+
+  const rows = [];
+
+  markets.forEach((m) => {
+    const names   = parseArr(m.outcomes, ['Yes', 'No']);
+    const prices  = parseArr(m.outcomePrices, []);
+    const tokens  = parseArr(m.clobTokenIds, []);
+    const lastP   = parseFloat(m.lastTradePrice);
+
+    if (markets.length === 1) {
+      // Single binary market — one row per outcome
+      names.forEach((name, i) => {
+        rows.push({
+          name,
+          question: m.question,
+          price:    parseFloat(prices[i] ?? 0.5),
+          tokenId:  tokens[i] || '',
+          market:   m,
+          isNo:     i === 1,
+        });
+      });
+    } else {
+      // Multi-outcome — one row per child market, showing YES outcome
+      const yesPrice = isNaN(lastP) ? parseFloat(prices[0] ?? 0.5) : lastP;
+      rows.push({
+        name:     m.question || names[0] || 'Yes',
+        question: m.question,
+        price:    yesPrice,
+        yesToken: tokens[0] || '',
+        noToken:  tokens[1] || '',
+        tokenId:  tokens[0] || '',
+        market:   m,
+        isMulti:  true,
+      });
+    }
+  });
+
+  return rows;
+}
+
+// ── Chart fetch ───────────────────────────────────────────────────────
+async function fetchHistory(tokenId, ivParam) {
+  const r = await fetch(`/api/prices-history?market=${tokenId}&interval=${ivParam}&fidelity=100`);
+  const d = await r.json();
+  return d.history || [];
+}
+
+// ── Custom Tooltip ────────────────────────────────────────────────────
+function ChartTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{ background:'white', border:'1px solid #e5e7eb', borderRadius:8,
+      padding:'0.5rem 0.75rem', fontSize:'0.72rem', boxShadow:'0 4px 12px rgba(0,0,0,0.1)' }}>
+      <div style={{ color:'#9ca3af', marginBottom:'0.2rem', fontSize:'0.68rem' }}>{label}</div>
+      {payload.map((p, i) => (
+        <div key={i} style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
+          <span style={{ width:7, height:7, borderRadius:'50%', background:p.color, display:'inline-block' }} />
+          <span style={{ color:'#1e1b4b', maxWidth:140, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+            {p.name}: <strong>{p.value}%</strong>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────────────
 export default function MarketDetail({ event, onClose, onTrade }) {
-  const [interval, setInterval] = useState('1W');
-  const [chartData, setChartData] = useState(null);
-  const [chartLoading, setChartLoading] = useState(false);
+  const [interval, setIntervalVal] = useState('1W');
+  const [chartData, setChartData]   = useState(null);
+  const [chartErr, setChartErr]     = useState(false);
+  const [chartLoading, setLoading]  = useState(true);
+  const abortRef = useRef(null);
 
-  const markets  = event.markets || [];
-  const outcomes = parseOutcomes(event);
-  const tradeable = outcomes.filter(o => o.tokenId && o.price !== null);
+  const outcomes  = buildOutcomes(event);
+  // For chart: show first 4 outcomes that have token IDs
+  const chartable = outcomes.filter(o => o.tokenId && !o.isNo).slice(0, 4);
 
-  // Fetch price history for ALL tradeable outcomes
-  const loadChart = useCallback(async (iv) => {
-    if (!tradeable.length) return;
-    setChartLoading(true);
+  const loadChart = async (iv) => {
+    if (!chartable.length) { setLoading(false); return; }
+    if (abortRef.current) abortRef.current = false;
+    const token = {};
+    abortRef.current = token;
+
+    setLoading(true);
+    setChartErr(false);
     setChartData(null);
+
     try {
+      const ivParam = IV_PARAM[iv];
       const results = await Promise.all(
-        tradeable.slice(0, 4).map(o =>
-          fetch(`/api/prices-history?market=${o.tokenId}&interval=${intervalParam[iv]}&fidelity=100`)
-            .then(r => r.json())
-            .then(d => ({ name: o.name, history: d.history || [] }))
+        chartable.map(o =>
+          fetchHistory(o.tokenId, ivParam)
+            .then(h => ({ name: o.isMulti ? (o.market.question?.replace(/^Will /i,'').replace(/\?$/,'').slice(0,30) || o.name) : o.name, history: h }))
+            .catch(() => ({ name: o.name, history: [] }))
         )
       );
 
-      // Merge all histories onto a common time axis
-      const allTs = new Set();
-      results.forEach(({ history }) => history.forEach(pt => allTs.add(pt.t)));
-      const sorted = Array.from(allTs).sort((a, b) => a - b);
+      if (token !== abortRef.current) return; // stale
 
-      // Build merged rows
-      const merged = sorted.map(t => {
-        const row = { t, label: fmtChartTs(t) };
-        results.forEach(({ name, history }) => {
-          const pt = history.find(h => h.t === t);
-          if (pt) row[name] = parseFloat((pt.p * 100).toFixed(1));
-        });
-        return row;
+      // If all histories empty, try 'max' as fallback
+      const allEmpty = results.every(r => !r.history.length);
+      if (allEmpty && iv !== 'ALL') {
+        const fallback = await Promise.all(
+          chartable.map(o =>
+            fetchHistory(o.tokenId, 'max')
+              .then(h => ({ name: results.find(r => r.name)?.name || o.name, history: h }))
+              .catch(() => ({ name: o.name, history: [] }))
+          )
+        );
+        if (token !== abortRef.current) return;
+        buildAndSet(fallback);
+        return;
+      }
+      buildAndSet(results);
+    } catch (e) {
+      if (token === abortRef.current) setChartErr(true);
+    } finally {
+      if (token === abortRef.current) setLoading(false);
+    }
+  };
+
+  function buildAndSet(results) {
+    const allTs = new Set();
+    results.forEach(({ history }) => history.forEach(pt => allTs.add(pt.t)));
+    const sorted = Array.from(allTs).sort((a, b) => a - b);
+
+    // Downsample to ~60 points for perf
+    const step = Math.max(1, Math.floor(sorted.length / 60));
+    const sampled = sorted.filter((_, i) => i % step === 0 || i === sorted.length - 1);
+
+    const names = results.map(r => r.name);
+    const merged = sampled.map(t => {
+      const d = new Date(t * 1000);
+      const label = d.toLocaleDateString('en-US',{ month:'short', day:'numeric' });
+      const row = { t, label };
+      results.forEach(({ name, history }) => {
+        const pt = history.find(h => h.t === t) || history.reduce((best, h) =>
+          Math.abs(h.t - t) < Math.abs(best.t - t) ? h : best
+        , history[0] || { t: 0, p: null });
+        if (pt?.p !== null && pt?.p !== undefined) row[name] = parseFloat((pt.p * 100).toFixed(1));
       });
+      return row;
+    });
 
-      // Forward-fill gaps
-      const names = results.map(r => r.name);
-      const filled = merged.map((row, i) => {
-        const out = { ...row };
-        names.forEach(name => {
-          if (out[name] === undefined && i > 0) out[name] = merged[i-1][name];
-        });
-        return out;
+    // Forward-fill nulls
+    names.forEach(name => {
+      let last = null;
+      merged.forEach(row => {
+        if (row[name] !== undefined) last = row[name];
+        else if (last !== null) row[name] = last;
       });
+    });
 
-      setChartData({ rows: filled, names, results });
-    } catch {}
-    setChartLoading(false);
-  }, [event.id, tradeable.length]); // eslint-disable-line
+    setChartData({ rows: merged, names });
+  }
 
-  useEffect(() => { loadChart('1W'); }, [event.id]); // eslint-disable-line
+  useEffect(() => {
+    loadChart('1W');
+    return () => { abortRef.current = null; };
+  }, [event.id]); // eslint-disable-line
 
-  const handleInterval = (iv) => { setInterval(iv); loadChart(iv); };
-
-  // Close on Escape
   useEffect(() => {
     const h = e => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [onClose]);
 
-  const img = event.image || event.icon;
-
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (!active || !payload?.length) return null;
-    return (
-      <div style={{ background:'white', border:'1px solid var(--border)', borderRadius:8,
-        padding:'0.5rem 0.75rem', fontSize:'0.75rem', boxShadow:'0 4px 12px rgba(0,0,0,0.1)' }}>
-        <div style={{ color:'var(--muted)', marginBottom:'0.25rem' }}>{label}</div>
-        {payload.map((p, i) => (
-          <div key={i} style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
-            <span style={{ width:8, height:8, borderRadius:'50%', background:p.color, display:'inline-block' }} />
-            <span style={{ color:'var(--text)' }}>{p.name}: <strong>{p.value}%</strong></span>
-          </div>
-        ))}
-      </div>
-    );
-  };
+  const isBinary = (event.markets || []).length === 1;
+  const img      = event.image || event.icon;
+  const totalVol = (event.markets || []).reduce((s, m) => s + (parseFloat(m.volume) || 0), 0);
 
   return (
     <>
@@ -125,16 +215,16 @@ export default function MarketDetail({ event, onClose, onTrade }) {
         <div style={handle} />
 
         {/* Header */}
-        <div style={{ display:'flex', gap:'0.75rem', alignItems:'flex-start', marginBottom:'1rem',
-          paddingRight:'2rem', position:'relative' }}>
+        <div style={{ display:'flex', gap:'0.75rem', alignItems:'flex-start',
+          marginBottom:'0.75rem', paddingRight:'2.5rem', position:'relative' }}>
           {img && (
-            <img src={img} alt="" style={{ width:44, height:44, borderRadius:10, objectFit:'cover', flexShrink:0 }}
+            <img src={img} alt="" style={{ width:40, height:40, borderRadius:10, objectFit:'cover', flexShrink:0 }}
               onError={e => e.target.style.display='none'} />
           )}
           <div>
             <div style={{ fontWeight:800, fontSize:'0.95rem', lineHeight:1.4 }}>{event.title}</div>
             {event.description && (
-              <div style={{ fontSize:'0.75rem', color:'var(--muted)', marginTop:'0.2rem',
+              <div style={{ fontSize:'0.72rem', color:'#6b7280', marginTop:'0.2rem',
                 display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>
                 {event.description}
               </div>
@@ -143,51 +233,48 @@ export default function MarketDetail({ event, onClose, onTrade }) {
           <button onClick={onClose} style={closeBtn}>✕</button>
         </div>
 
-        {/* Chart */}
-        <div style={{ background:'white', borderRadius:12, marginBottom:'0.75rem',
-          border:'1px solid var(--border)', overflow:'hidden' }}>
-          <div style={{ padding:'0.75rem 1rem 0', height: chartLoading ? 180 : 200 }}>
+        {/* Chart card */}
+        <div style={{ background:'white', borderRadius:12, border:'1px solid #e5e7eb',
+          marginBottom:'0.75rem', overflow:'hidden' }}>
+          <div style={{ height:180, padding:'0.75rem 0 0.25rem 0' }}>
             {chartLoading ? (
-              <div style={{ height:'100%', display:'flex', alignItems:'center', justifyContent:'center',
-                color:'var(--muted)', fontSize:'0.82rem' }}>Loading chart…</div>
-            ) : chartData?.rows?.length ? (
+              <div style={centerMuted}>Loading chart…</div>
+            ) : chartErr || !chartData?.rows?.length ? (
+              <div style={centerMuted}>No price history available</div>
+            ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData.rows} margin={{ top:4, right:8, left:-20, bottom:0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="label" tick={{ fontSize:10, fill:'#9ca3af' }} tickLine={false} axisLine={false}
-                    interval="preserveStartEnd" />
+                <LineChart data={chartData.rows} margin={{ top:4, right:8, left:-22, bottom:0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                  <XAxis dataKey="label" tick={{ fontSize:10, fill:'#9ca3af' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
                   <YAxis tick={{ fontSize:10, fill:'#9ca3af' }} tickLine={false} axisLine={false}
                     domain={[0, 100]} tickFormatter={v => `${v}%`} width={36} />
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<ChartTooltip />} />
                   {chartData.names.map((name, i) => (
-                    <Line key={name} type="monotone" dataKey={name} stroke={COLORS[i % COLORS.length]}
-                      dot={false} strokeWidth={2} connectNulls />
+                    <Line key={name} type="monotone" dataKey={name}
+                      stroke={COLORS[i % COLORS.length]} dot={false} strokeWidth={2} connectNulls />
                   ))}
                 </LineChart>
               </ResponsiveContainer>
-            ) : (
-              <div style={{ height:'100%', display:'flex', alignItems:'center', justifyContent:'center',
-                color:'var(--muted)', fontSize:'0.82rem' }}>No price history available</div>
             )}
           </div>
 
-          {/* Time range + meta */}
-          <div style={{ padding:'0.6rem 1rem', borderTop:'1px solid var(--border)',
-            display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'0.5rem' }}>
-            <div style={{ fontSize:'0.72rem', color:'var(--muted)', display:'flex', gap:'0.75rem' }}>
-              <span>🏆 {fmtVol(event.volume)}</span>
+          {/* Chart footer: vol + date + interval buttons */}
+          <div style={{ padding:'0.5rem 0.75rem', borderTop:'1px solid #f3f4f6',
+            display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'0.4rem' }}>
+            <div style={{ fontSize:'0.7rem', color:'#6b7280', display:'flex', gap:'0.75rem', flexWrap:'wrap' }}>
+              {totalVol > 0 && <span>🏆 {fmtVol(totalVol)}</span>}
               {event.endDate && <span>⏱ {fmtDate(event.endDate)}</span>}
             </div>
-            <div style={{ display:'flex', gap:'0.25rem' }}>
+            <div style={{ display:'flex', gap:'2px' }}>
               {INTERVALS.map(iv => (
                 <button key={iv}
                   style={{
-                    padding:'0.2rem 0.45rem', borderRadius:6, fontSize:'0.72rem', fontWeight:600,
+                    padding:'0.2rem 0.42rem', borderRadius:6, fontSize:'0.7rem', fontWeight:600,
                     border:'none', cursor:'pointer', transition:'all .15s',
-                    background: interval === iv ? 'var(--purple)' : 'transparent',
-                    color: interval === iv ? 'white' : 'var(--muted)',
+                    background: interval === iv ? '#7c3aed' : 'transparent',
+                    color: interval === iv ? 'white' : '#6b7280',
                   }}
-                  onClick={() => handleInterval(iv)}
+                  onClick={() => { setIntervalVal(iv); loadChart(iv); }}
                 >{iv}</button>
               ))}
             </div>
@@ -195,101 +282,142 @@ export default function MarketDetail({ event, onClose, onTrade }) {
         </div>
 
         {/* Outcome rows */}
-        <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem', marginBottom:'1rem' }}>
-          {tradeable.map((o, i) => {
-            const market = markets.length === 1 ? markets[0] : markets[i];
-            const marketVol = market ? (parseFloat(market.volume) || 0) : 0;
-            const yesPrice = o.price;
-            const noPrice  = 1 - yesPrice;
-            const tokens   = (() => {
-              if (!market) return [o.tokenId, ''];
-              const arr = Array.isArray(market.clobTokenIds)
-                ? market.clobTokenIds
-                : (() => { try { return JSON.parse(market.clobTokenIds || '[]'); } catch { return []; } })();
-              return [arr[0] || o.tokenId, arr[1] || ''];
-            })();
-
-            return (
-              <div key={i} style={outcomeRow}>
-                <div style={{ display:'flex', alignItems:'center', gap:'0.6rem', flex:1, minWidth:0 }}>
-                  {(market?.image || market?.icon) && (
-                    <img src={market.image || market.icon} alt="" style={{ width:32, height:32, borderRadius:8, objectFit:'cover', flexShrink:0 }}
-                      onError={e => e.target.style.display='none'} />
-                  )}
-                  <div style={{ minWidth:0 }}>
-                    <div style={{ fontWeight:700, fontSize:'0.85rem',
-                      whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                      {o.name}
-                    </div>
-                    {marketVol > 0 && (
-                      <div style={{ fontSize:'0.7rem', color:'var(--muted)' }}>{fmtVol(marketVol)} Vol</div>
+        {outcomes.length === 0 ? (
+          <div style={centerMuted}>No outcomes available</div>
+        ) : isBinary ? (
+          // ── Binary: two big "YES / NO" buttons ──
+          <div style={{ background:'white', borderRadius:12, border:'1px solid #e5e7eb', padding:'0.85rem', marginBottom:'0.75rem' }}>
+            {outcomes.filter(o => !o.isNo).map((yes, i) => {
+              const no = outcomes.find(o => o.isNo && o.market === yes.market) || { price: 1 - yes.price, tokenId: parseArr(yes.market?.clobTokenIds)[1] || '' };
+              return (
+                <div key={i}>
+                  <div style={{ fontWeight:700, fontSize:'0.85rem', marginBottom:'0.6rem' }}>
+                    {yes.market?.question || event.title}
+                  </div>
+                  <div style={{ height:6, background:'#e5e7eb', borderRadius:99, overflow:'hidden', marginBottom:'0.6rem' }}>
+                    <div style={{ height:'100%', width:`${Math.round(yes.price*100)}%`, borderRadius:99,
+                      background:'linear-gradient(90deg,#e91e8c,#7c3aed)' }} />
+                  </div>
+                  <div style={{ display:'flex', gap:'0.5rem' }}>
+                    <button style={{ ...bigTradeBtn, background:'#dcfce7', color:'#059669', borderColor:'#86efac' }}
+                      onClick={() => { onClose(); onTrade({ event, tokenID: yes.tokenId, outcomeName:'Yes', initialPrice: yes.price }); }}>
+                      <span style={{ fontSize:'1.1rem', fontWeight:900 }}>{Math.round(yes.price*100)}%</span>
+                      <span style={{ fontSize:'0.72rem', fontWeight:600 }}>Buy Yes · {fmtCents(yes.price)}</span>
+                    </button>
+                    {no.tokenId && (
+                      <button style={{ ...bigTradeBtn, background:'#fef2f2', color:'#dc2626', borderColor:'#fca5a5' }}
+                        onClick={() => { onClose(); onTrade({ event, tokenID: no.tokenId, outcomeName:'No', initialPrice: no.price }); }}>
+                        <span style={{ fontSize:'1.1rem', fontWeight:900 }}>{Math.round(no.price*100)}%</span>
+                        <span style={{ fontSize:'0.72rem', fontWeight:600 }}>Buy No · {fmtCents(no.price)}</span>
+                      </button>
                     )}
                   </div>
                 </div>
+              );
+            })}
+          </div>
+        ) : (
+          // ── Multi-outcome rows ──
+          <div style={{ display:'flex', flexDirection:'column', gap:'0.4rem' }}>
+            {outcomes.map((o, i) => {
+              const yesPrice = o.price;
+              const noPrice  = Math.max(0, 1 - yesPrice);
+              const noToken  = o.noToken || parseArr(o.market?.clobTokenIds)[1] || '';
+              const p        = Math.round(yesPrice * 100);
+              const color    = yesPrice > 0.5 ? '#059669' : yesPrice < 0.1 ? '#9ca3af' : '#1e1b4b';
+              const mImg     = o.market?.image || o.market?.icon;
 
-                <div style={{ fontSize:'1.5rem', fontWeight:900, color: yesPrice > 0.5 ? 'var(--text)' : 'var(--muted)',
-                  minWidth:64, textAlign:'center', flexShrink:0 }}>
-                  {fmtPct(yesPrice)}
-                </div>
+              return (
+                <div key={i} style={outcomeRow}>
+                  <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flex:1, minWidth:0 }}>
+                    {mImg && (
+                      <img src={mImg} alt="" style={{ width:32, height:32, borderRadius:8, objectFit:'cover', flexShrink:0 }}
+                        onError={e => e.target.style.display='none'} />
+                    )}
+                    <div style={{ minWidth:0 }}>
+                      <div style={{ fontWeight:600, fontSize:'0.8rem',
+                        overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        {o.name.replace(/^Will /i,'').replace(/\?$/,'').slice(0,40)}
+                      </div>
+                      {o.market?.volume > 0 && (
+                        <div style={{ fontSize:'0.65rem', color:'#6b7280' }}>{fmtVol(o.market.volume)}</div>
+                      )}
+                    </div>
+                  </div>
 
-                <div style={{ display:'flex', gap:'0.4rem', flexShrink:0 }}>
-                  <button
-                    style={{ ...tradeBtnBase, background:'#dcfce7', color:'var(--green)', borderColor:'#86efac' }}
-                    onClick={() => onTrade({ event, tokenID: tokens[0], outcomeName: `${o.name} YES`, initialPrice: yesPrice })}
-                  >
-                    Buy Yes <span style={{ fontWeight:400, fontSize:'0.72rem' }}>{fmtCents(yesPrice)}</span>
-                  </button>
-                  {tokens[1] && (
-                    <button
-                      style={{ ...tradeBtnBase, background:'#fef2f2', color:'var(--red)', borderColor:'#fca5a5' }}
-                      onClick={() => onTrade({ event, tokenID: tokens[1], outcomeName: `${o.name} NO`, initialPrice: noPrice })}
-                    >
-                      Buy No <span style={{ fontWeight:400, fontSize:'0.72rem' }}>{fmtCents(noPrice)}</span>
-                    </button>
-                  )}
+                  <div style={{ fontSize:'1.3rem', fontWeight:900, color, flexShrink:0, minWidth:52, textAlign:'center' }}>
+                    {p < 1 ? '<1%' : p > 99 ? '>99%' : `${p}%`}
+                  </div>
+
+                  <div style={{ display:'flex', gap:'0.35rem', flexShrink:0 }}>
+                    {o.tokenId ? (
+                      <button
+                        style={{ ...smBtn, background:'#dcfce7', color:'#059669', borderColor:'#86efac' }}
+                        onClick={() => { onClose(); onTrade({ event, tokenID: o.tokenId, outcomeName: `${o.name} Yes`, initialPrice: yesPrice }); }}
+                      >
+                        Yes <span style={{ fontSize:'0.65rem' }}>{fmtCents(yesPrice)}</span>
+                      </button>
+                    ) : null}
+                    {noToken ? (
+                      <button
+                        style={{ ...smBtn, background:'#fef2f2', color:'#dc2626', borderColor:'#fca5a5' }}
+                        onClick={() => { onClose(); onTrade({ event, tokenID: noToken, outcomeName: `${o.name} No`, initialPrice: noPrice }); }}
+                      >
+                        No <span style={{ fontSize:'0.65rem' }}>{fmtCents(noPrice)}</span>
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </>
   );
 }
 
-// ── Styles ──
+// ── Styles ──────────────────────────────────────────────────────────────
 const overlay = {
   position:'fixed', inset:0, zIndex:300,
   background:'rgba(0,0,0,0.5)', backdropFilter:'blur(4px)', WebkitBackdropFilter:'blur(4px)',
-  animation:'fadeIn .2s ease',
+  animation:'fadeIn .18s ease',
 };
 const sheet = {
   position:'fixed', bottom:0, left:0, right:0, zIndex:301,
-  background:'var(--bg)', borderRadius:'20px 20px 0 0',
+  background:'#faf5ff', borderRadius:'20px 20px 0 0',
   padding:'0 1rem 1.5rem',
   paddingBottom:'max(1.5rem,env(safe-area-inset-bottom))',
   maxHeight:'92dvh', overflowY:'auto',
-  animation:'slideUp .3s cubic-bezier(.33,1,.68,1)',
+  animation:'slideUp .28s cubic-bezier(.33,1,.68,1)',
 };
-const handle = {
-  width:36, height:4, borderRadius:2,
-  background:'var(--border)', margin:'0.75rem auto 1rem',
-};
+const handle = { width:36, height:4, borderRadius:2, background:'#e5e7eb', margin:'0.75rem auto 1rem' };
 const closeBtn = {
   position:'absolute', top:0, right:0,
   width:28, height:28, borderRadius:'50%',
-  background:'white', border:'1px solid var(--border)',
-  cursor:'pointer', fontSize:'0.8rem', color:'var(--muted)',
-  display:'flex', alignItems:'center', justifyContent:'center',
+  background:'white', border:'1px solid #e5e7eb',
+  cursor:'pointer', fontSize:'0.8rem', color:'#6b7280',
+  display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+};
+const centerMuted = {
+  height:'100%', display:'flex', alignItems:'center', justifyContent:'center',
+  color:'#9ca3af', fontSize:'0.82rem',
 };
 const outcomeRow = {
-  background:'white', borderRadius:12, padding:'0.75rem',
-  border:'1px solid var(--border)',
-  display:'flex', alignItems:'center', gap:'0.75rem', flexWrap:'wrap',
+  background:'white', borderRadius:10, padding:'0.65rem 0.75rem',
+  border:'1px solid #e5e7eb',
+  display:'flex', alignItems:'center', gap:'0.6rem',
 };
-const tradeBtnBase = {
-  padding:'0.45rem 0.65rem', borderRadius:8,
-  fontSize:'0.8rem', fontWeight:700, border:'1.5px solid',
-  cursor:'pointer', whiteSpace:'nowrap', lineHeight:1.3,
-  display:'flex', flexDirection:'column', alignItems:'center',
+const bigTradeBtn = {
+  flex:1, padding:'0.65rem 0.5rem', borderRadius:10,
+  border:'1.5px solid', cursor:'pointer',
+  display:'flex', flexDirection:'column', alignItems:'center', gap:'1px',
+  fontFamily:'inherit',
+};
+const smBtn = {
+  padding:'0.35rem 0.55rem', borderRadius:7,
+  fontSize:'0.78rem', fontWeight:700, border:'1.5px solid',
+  cursor:'pointer', whiteSpace:'nowrap',
+  display:'flex', flexDirection:'column', alignItems:'center', gap:'1px',
+  fontFamily:'inherit',
 };
