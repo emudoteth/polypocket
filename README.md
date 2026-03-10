@@ -1,183 +1,183 @@
-# 🫧 PolyPocket
+# PolyPocket 🫧
 
-> **The whole prediction market, in your pocket.**
+> The whole prediction market, in your pocket.
 
-A live, mobile-first Polymarket integration pulling real-time events, outcome probabilities, and order book depth directly from the Polymarket CLOB and Gamma APIs — with no API key required.
+Live markets, real-time prices, and wallet-native trading — built on [Polymarket](https://polymarket.com).
 
-**→ [Live Demo: polypocket.vercel.app](https://polypocket.vercel.app)**
-
----
-
-## What It Does
-
-- 🔴 **Live events** — top 48 active markets by 24h volume, paginated, auto-refreshing every 60 seconds
-- 🗂️ **14 real Polymarket categories** — Politics, Sports, Crypto, Iran, Finance, Geopolitics, Tech, Culture, Economy, Climate & Science, Elections, Entertainment, NFL, NBA
-- 📊 **Outcome probabilities** — YES/NO and multi-outcome markets with visual probability bars
-- 📖 **Order book depth** — real-time bids and asks in a native mobile bottom sheet
-- 🔍 **Search + category filter** — keyword search layered on top of category tabs
-- 📱 **Mobile-first** — bottom sheet UI, horizontal scroll rail, safe area insets, tap interactions
+**Live:** https://polypocket.vercel.app  
+**Stack:** Next.js 14 · ethers.js v5 · Recharts · Vercel serverless
 
 ---
 
 ## Architecture
 
 ```
-Browser
-  └─→ /api/events    (Vercel serverless proxy)
-        └─→ gamma-api.polymarket.com/events
-  └─→ /api/book      (Vercel serverless proxy)
-        └─→ clob.polymarket.com/book
+Browser                          Vercel Serverless (Node.js)
+───────────────────────────────  ──────────────────────────────────────
+hooks/useWallet.js               pages/api/events.js    → Gamma API
+  └─ window.ethereum + ethers    pages/api/event.js     → Gamma API
+                                 pages/api/markets.js   → Gamma API
+components/                      pages/api/book.js      → CLOB API
+  MarketCard.jsx                 pages/api/prices-history.js → CLOB API
+  MarketDetail.jsx
+  Portfolio.jsx
+  TradeModal.jsx ──deeplink──→ polymarket.com
+  WalletButton.jsx
 
-No build step. No dependencies. Single HTML file + 3 serverless functions.
+lib/clob.js  ← SERVER ONLY (Node.js crypto)
 ```
 
-**Why a server-side proxy?**  
-Polymarket's APIs don't emit CORS headers for arbitrary browser origins. The Vercel serverless functions act as a thin pass-through, adding CORS headers and a short cache (`s-maxage`) to keep the experience snappy without hammering upstream.
+All Polymarket API calls go through serverless proxies — both APIs lack CORS headers for browser origins.
 
 ---
 
-## API Endpoints Used
+## Wallet Connection
 
-### 1. Events (with pagination + tag filtering)
-```
-GET https://gamma-api.polymarket.com/events
-  ?active=true
-  &closed=false
-  &limit=48
-  &offset=<n>
-  &order=volume24hr
-  &ascending=false
-  &tag_slug=<category>   # optional — filters by Polymarket category slug
-```
-Returns active events grouped with their child markets, outcome prices, volumes, and tag metadata. This is the same endpoint Polymarket's own frontend uses.
+Uses bare `window.ethereum` + ethers.js v5. No RainbowKit, no wagmi, no WalletConnect needed.
 
-**Docs:** [docs.polymarket.com/api-reference/events/list-events](https://docs.polymarket.com/api-reference/events/list-events)
+```js
+const provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+const signer   = provider.getSigner();
+// Pass signer directly to ClobClient (server-side) or sign typed data client-side
+```
+
+Works with: MetaMask, Brave Wallet, Coinbase Wallet, Rabby, any EIP-1193 extension.
 
 ---
 
-### 2. Order Book
-```
-GET https://clob.polymarket.com/book?token_id=<token_id>
-```
-Returns the full CLOB order book (bids + asks) for a specific outcome token. Each market outcome is an ERC-1155 token on Polygon — the `token_id` comes from the event's nested market `clobTokenIds` field.
+## API Reference
 
-**Docs:** [docs.polymarket.com/api-reference/market-data/get-order-book](https://docs.polymarket.com/api-reference/market-data/get-order-book)
+### Gamma API (Events / Markets)
+Base: `https://gamma-api.polymarket.com`
 
----
+| Endpoint | Purpose |
+|---|---|
+| `GET /events?limit=N&order=volume24hr&ascending=false` | Paginated events, sorted by 24h volume |
+| `GET /events?tag_slug=politics&limit=N` | Events filtered by tag |
+| `GET /events/{id}` | Single event with all markets |
 
-## Understanding Polymarket's Data Model
+### CLOB API (Order Book / Prices)
+Base: `https://clob.polymarket.com`
 
-| Concept | What it means |
-|---------|--------------|
-| **Event** | A top-level question with one or more outcome markets (e.g., "2026 Midterms") |
-| **Market** | A specific binary question nested inside an event |
-| **Outcome Token** | Each outcome (YES/NO) is a unique ERC-1155 token ID on Polygon |
-| **Price** | Represents probability — a YES token at `0.72` = 72% market-implied chance |
-| **Order Book** | Standard CLOB bids/asks, priced 0.00–1.00 (in USDC) |
-| **Resolution** | Winning tokens redeem at $1.00 USDC; losing tokens go to $0 |
+| Endpoint | Purpose |
+|---|---|
+| `GET /book?token_id={TOKEN_ID}` | Order book depth for one outcome token |
+| `GET /prices-history?market={TOKEN_ID}&interval={1h\|6h\|1d\|1w\|1m\|max}&fidelity=100` | Price history |
+| `POST /order` | Place signed limit order (requires L2 HMAC auth) |
 
----
+### Data API (Portfolio / Leaderboard)
+Base: `https://data-api.polymarket.com`
 
-## Project Structure
-
-```
-polypocket/
-├── index.html          # Full app — UI, state, rendering, all vanilla JS
-├── api/
-│   ├── events.js       # Proxy → gamma-api.polymarket.com/events (with tag + pagination)
-│   ├── book.js         # Proxy → clob.polymarket.com/book
-│   └── markets.js      # Proxy → gamma-api.polymarket.com/markets (legacy, kept for reference)
-└── README.md
-```
+| Endpoint | Purpose |
+|---|---|
+| `GET /positions?user={PROXY_WALLET}&limit=50` | User's open positions |
+| `GET /v1/leaderboard?category=OVERALL&limit=20` | Global leaderboard |
 
 ---
 
-## Running Locally
+## Gotchas & Hard-Won Lessons
+
+### 1. `@polymarket/clob-client` is Node.js only
+The clob-client uses `crypto`, `stream`, `http`, `https`, `os` from Node.js. These don't exist in the browser. **Never import `lib/clob.js` from a component.** Import it only from `pages/api/*` routes.
+
+```js
+// ✅ Fine — runs in Node.js
+// pages/api/place-order.js
+import { placeOrder } from '../../lib/clob';
+
+// ❌ Crashes browser — do not do this
+// components/TradeModal.jsx
+import { placeOrder } from '../lib/clob';
+```
+
+Next.js 14 removed automatic Node.js polyfills. Webpack `resolve.fallback: { crypto: false }` stubs the module but causes runtime TypeErrors when the code actually calls `crypto.createHmac()`.
+
+### 2. Don't use RainbowKit / wagmi for this stack
+- `wagmi@1.x` removed `useSigner` (it existed in v0.x only). Any code calling `useSigner()` from wagmi 1.x throws `TypeError: useSigner is not a function`.
+- RainbowKit requires a WalletConnect project ID (free at cloud.walletconnect.com) or you get WebSocket 401 noise in the console.
+- The wagmi/RainbowKit provider stack adds ~400KB and several peer-dep version constraints.
+- **Simpler:** `window.ethereum` + ethers.js v5 directly. Zero provider wrapping, no hook version drift.
+
+### 3. `market` param for prices-history = TOKEN ID, not conditionId
+```js
+// ✅ Correct
+GET /prices-history?market=38397507750621893057346880033441136112987238933685677349709401910643842844855
+
+// ❌ Wrong — conditionId won't return history
+GET /prices-history?market=0x1234...conditionId
+```
+Token IDs are the `clobTokenIds` values from the event's market object (always JSON strings).
+
+### 4. API response fields are JSON strings, not parsed objects
+```js
+const market = event.markets[0];
+
+// ❌ This crashes
+market.clobTokenIds[0]
+
+// ✅ Parse first
+JSON.parse(market.clobTokenIds)[0]    // e.g. "38397507..."
+JSON.parse(market.outcomePrices)[0]   // e.g. "0.73"
+JSON.parse(market.outcomes)[0]        // e.g. "Yes"
+```
+
+### 5. Both Polymarket APIs lack CORS headers
+`clob.polymarket.com` and `gamma-api.polymarket.com` don't send `Access-Control-Allow-Origin` for browser requests. All API calls must go through server-side proxies (Vercel API routes in this project).
+
+### 6. Vercel build cache can serve stale chunks
+After code changes, Vercel may serve a cached bundle with the old chunk hash. The symptom: browser throws errors for code you've already fixed. Fix: hard refresh (`Cmd+Shift+R`) or clear site data. The deployed chunk hash changing in the Network tab confirms the new build is live.
+
+### 7. ClobClient constructor for EOA wallets
+```js
+// 4-arg form (v4.x default) — works for proxy wallets
+new ClobClient(host, chainId, signer, creds)
+
+// 6-arg form — required for EOA (externally owned account) signing
+new ClobClient(host, chainId, signer, creds, 0, funderAddress)
+//                                             ↑ SignatureType.EOA = 0
+//                                                      ↑ your wallet address
+```
+
+### 8. L2 API credentials (HMAC)
+Polymarket uses a two-layer auth model:
+- **L1** — EIP-712 signed message proves wallet ownership → returns L2 API key + secret + passphrase
+- **L2** — Every CLOB request is HMAC-signed with the L2 secret
+
+`ClobClient.createOrDeriveApiKey()` handles L1 and returns L2 creds. Cache them in `localStorage` — re-deriving requires a wallet signature every time.
+
+### 9. Neg-risk markets
+Multi-outcome markets where probabilities sum to 1 (e.g. "Which party wins the Senate?") use a different contract (`NegRiskCTFExchange`). The `enableOrderBook` and `negRisk` flags on the event indicate this. The clob-client handles the routing, but be aware the token structure differs.
+
+### 10. US geoblock
+```js
+const res = await fetch('https://polymarket.com/api/geoblock');
+const { restricted } = await res.json(); // true for US IPs
+```
+Show a warning in the UI before allowing trades from restricted regions.
+
+---
+
+## Local Development
 
 ```bash
-git clone https://github.com/emudoteth/polypocket
-cd polypocket
-
-# Requires Vercel CLI to run serverless functions locally
-npm i -g vercel
-vercel dev
-# → http://localhost:3000
+npm install
+npm run dev   # http://localhost:3000
 ```
 
-Or just open `index.html` directly — it'll show the UI but market data won't load without the proxy (CORS). Use `vercel dev` for the full experience.
-
----
-
-## Deploying Your Own
-
-```bash
-npx vercel --prod
+Environment variables (optional):
+```
+# None required for read-only browsing
+# For WalletConnect mobile QR: NEXT_PUBLIC_WC_PROJECT_ID=your_id_here
 ```
 
-The entire app is `index.html` + 3 serverless functions. No environment variables, no config, no database.
-
 ---
 
-## Going Further
+## Trading Flow (Current)
 
-PolyPocket is read-only. With authentication you can place orders, track positions, and subscribe to live WebSocket feeds:
+The trade modal collects price/size and opens `polymarket.com/event/{slug}` for actual execution. This is intentional — the CLOB signing flow requires server-side `@polymarket/clob-client` but the EIP-712 signature must come from the user's wallet, which creates a round-trip complexity outside scope for this MVP.
 
-```python
-# pip install py-clob-client
-from py_clob_client.client import ClobClient
-from py_clob_client.clob_types import OrderArgs, BUY
-
-client = ClobClient(
-    "https://clob.polymarket.com",
-    key=private_key,
-    chain_id=137,
-    creds=api_creds,
-)
-
-# Place a limit order
-order = client.create_and_post_order(OrderArgs(
-    token_id="...",
-    price=0.65,
-    size=100,
-    side=BUY,
-))
-```
-
-**Docs:** [docs.polymarket.com/api-reference/clients-sdks](https://docs.polymarket.com/api-reference/clients-sdks)
-
-Other things you could build on this foundation:
-- **Price alert bot** — monitor a market, DM when price crosses a threshold
-- **Portfolio tracker** — fetch positions and P&L via the Core API
-- **Embedded widgets** — drop live market cards into any site via the Builder Program
-- **Market aggregator** — group related events and surface combined probability signals
-
----
-
-## Why This Exists
-
-Built as a proof of concept to demonstrate how quickly a polished, production-quality integration can be assembled on Polymarket's public API surface.
-
-Goals:
-1. Actually works, live, zero setup for the end user
-2. Makes the full API surface legible — every data point traces back to a specific endpoint and docs page
-3. Useful reference for developers starting their first Polymarket integration
-
----
-
-## Stack
-
-- **HTML + vanilla JS** — zero dependencies, zero build step
-- **Vercel serverless** — CORS proxy + edge caching for the Polymarket APIs
-- **Polymarket Gamma API** — events, markets, tags, volumes
-- **Polymarket CLOB API** — order book depth
-
----
-
-## License
-
-MIT. Fork it, break it, build on it.
-
----
-
-*Built by [@emudoteth](https://github.com/emudoteth)*  
-*Data: [Polymarket](https://polymarket.com) · Docs: [docs.polymarket.com](https://docs.polymarket.com)*
+**To implement real order placement:**
+1. Server: `GET /api/build-order?tokenID=&price=&size=&side=` → returns EIP-712 typed data
+2. Browser: `signer._signTypedData(domain, types, value)` → signed order
+3. Browser: `POST /api/submit-order` with signed order + funder address
+4. Server: add L2 HMAC headers, forward to `POST https://clob.polymarket.com/order`
