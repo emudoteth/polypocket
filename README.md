@@ -249,3 +249,16 @@ const tagEmoji = slug => ({
 ```
 
 The Gamma API returns tag slugs (`tag_slug: "politics"`) but no emoji or icon metadata. Any new tag from the API that isn't in this map falls back to 🫧. To support new tags properly, this map needs manual updates.
+
+### "Person AN" / "Person CX" — Placeholder Candidate Names
+
+For prediction markets where candidates haven't been officially announced, Polymarket uses anonymized placeholder names in their API response: `Person AN`, `Person BX`, `Person CX`, etc.
+
+```js
+// What the API returns for "Republican Presidential Nominee 2028"
+outcomes: '["Will Donald Trump win?","Will Person AN win?","Will Person CX win?"]'
+```
+
+These are real Polymarket market entries — not a bug in the integration. They represent real liquidity on unknown/unannounced candidates.
+
+**UI handling:** Placeholder outcomes (`/^Person [A-Z]+$/`) are deprioritised — sorted to the end of the card so named candidates show first. They still appear in the full market detail view.
