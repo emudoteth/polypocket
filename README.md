@@ -2,7 +2,7 @@
 
 > **The whole prediction market, in your pocket.**
 
-A live, no-auth Polymarket integration that pulls real-time market data, outcome probabilities, and order book depth directly from the Polymarket CLOB API.
+A live, mobile-first Polymarket integration pulling real-time events, outcome probabilities, and order book depth directly from the Polymarket CLOB and Gamma APIs — with no API key required.
 
 **→ [Live Demo: polypocket.vercel.app](https://polypocket.vercel.app)**
 
@@ -10,29 +10,46 @@ A live, no-auth Polymarket integration that pulls real-time market data, outcome
 
 ## What It Does
 
-PolyPocket fetches and displays live prediction market data from Polymarket:
+- 🔴 **Live events** — top 48 active markets by 24h volume, paginated, auto-refreshing every 60 seconds
+- 🗂️ **14 real Polymarket categories** — Politics, Sports, Crypto, Iran, Finance, Geopolitics, Tech, Culture, Economy, Climate & Science, Elections, Entertainment, NFL, NBA
+- 📊 **Outcome probabilities** — YES/NO and multi-outcome markets with visual probability bars
+- 📖 **Order book depth** — real-time bids and asks in a native mobile bottom sheet
+- 🔍 **Search + category filter** — keyword search layered on top of category tabs
+- 📱 **Mobile-first** — bottom sheet UI, horizontal scroll rail, safe area insets, tap interactions
 
-- 🔴 **Live markets** — top 30 by 24h volume, auto-refreshing every 30 seconds
-- 📊 **Outcome prices** — YES/NO probabilities displayed as visual bars + percentages
-- 📖 **Order book depth** — real-time bids and asks for any market's outcome token
-- 🔍 **Search + filter** — by keyword or category tag
-- 📡 **No API key required** — uses only Polymarket's public read endpoints
+---
+
+## Architecture
+
+```
+Browser
+  └─→ /api/events    (Vercel serverless proxy)
+        └─→ gamma-api.polymarket.com/events
+  └─→ /api/book      (Vercel serverless proxy)
+        └─→ clob.polymarket.com/book
+
+No build step. No dependencies. Single HTML file + 3 serverless functions.
+```
+
+**Why a server-side proxy?**  
+Polymarket's APIs don't emit CORS headers for arbitrary browser origins. The Vercel serverless functions act as a thin pass-through, adding CORS headers and a short cache (`s-maxage`) to keep the experience snappy without hammering upstream.
 
 ---
 
 ## API Endpoints Used
 
-All data is fetched client-side, live from Polymarket's infrastructure.
-
-### 1. Market Listings
+### 1. Events (with pagination + tag filtering)
 ```
-GET https://gamma-api.polymarket.com/markets
+GET https://gamma-api.polymarket.com/events
   ?active=true
-  &limit=30
+  &closed=false
+  &limit=48
+  &offset=<n>
   &order=volume24hr
   &ascending=false
+  &tag_slug=<category>   # optional — filters by Polymarket category slug
 ```
-Returns active markets with questions, token IDs, outcome prices, volumes, and category tags.
+Returns active events grouped with their child markets, outcome prices, volumes, and tag metadata. This is the same endpoint Polymarket's own frontend uses.
 
 **Docs:** [docs.polymarket.com/api-reference/events/list-events](https://docs.polymarket.com/api-reference/events/list-events)
 
@@ -42,34 +59,36 @@ Returns active markets with questions, token IDs, outcome prices, volumes, and c
 ```
 GET https://clob.polymarket.com/book?token_id=<token_id>
 ```
-Returns the full order book (bids + asks) for a specific outcome token. Each market has one token ID per outcome (e.g., YES and NO each have their own token).
+Returns the full CLOB order book (bids + asks) for a specific outcome token. Each market outcome is an ERC-1155 token on Polygon — the `token_id` comes from the event's nested market `clobTokenIds` field.
 
 **Docs:** [docs.polymarket.com/api-reference/market-data/get-order-book](https://docs.polymarket.com/api-reference/market-data/get-order-book)
 
 ---
 
-### 3. Midpoint Prices
-```
-GET https://clob.polymarket.com/midpoints?token_id=<token_id>
-```
-The midpoint is the average of the best bid and best ask — the cleanest single-number representation of market probability.
+## Understanding Polymarket's Data Model
 
-**Docs:** [docs.polymarket.com/api-reference/data/get-midpoint-price](https://docs.polymarket.com/api-reference/data/get-midpoint-price)
+| Concept | What it means |
+|---------|--------------|
+| **Event** | A top-level question with one or more outcome markets (e.g., "2026 Midterms") |
+| **Market** | A specific binary question nested inside an event |
+| **Outcome Token** | Each outcome (YES/NO) is a unique ERC-1155 token ID on Polygon |
+| **Price** | Represents probability — a YES token at `0.72` = 72% market-implied chance |
+| **Order Book** | Standard CLOB bids/asks, priced 0.00–1.00 (in USDC) |
+| **Resolution** | Winning tokens redeem at $1.00 USDC; losing tokens go to $0 |
 
 ---
 
-## Architecture
+## Project Structure
 
 ```
-Browser
-  └─→ gamma-api.polymarket.com/markets   (market list + metadata)
-  └─→ clob.polymarket.com/book           (order book on demand)
-
-No backend. No server. No API key.
-Pure HTML + vanilla JS deployed to Vercel.
+polypocket/
+├── index.html          # Full app — UI, state, rendering, all vanilla JS
+├── api/
+│   ├── events.js       # Proxy → gamma-api.polymarket.com/events (with tag + pagination)
+│   ├── book.js         # Proxy → clob.polymarket.com/book
+│   └── markets.js      # Proxy → gamma-api.polymarket.com/markets (legacy, kept for reference)
+└── README.md
 ```
-
-**Why no framework?** PolyPocket is intentionally dependency-free. It's meant to be a reference integration — something a developer can read, understand, and fork in an afternoon. One file. No build step. No `node_modules`.
 
 ---
 
@@ -79,54 +98,34 @@ Pure HTML + vanilla JS deployed to Vercel.
 git clone https://github.com/emudoteth/polypocket
 cd polypocket
 
-# Option 1: just open it
-open index.html
-
-# Option 2: serve it (avoids any CORS quirks)
-npx serve .
+# Requires Vercel CLI to run serverless functions locally
+npm i -g vercel
+vercel dev
 # → http://localhost:3000
 ```
 
-That's it. No `.env`, no install step, no config.
+Or just open `index.html` directly — it'll show the UI but market data won't load without the proxy (CORS). Use `vercel dev` for the full experience.
 
 ---
 
-## Deploying Your Own Instance
+## Deploying Your Own
 
 ```bash
-# Vercel (one command)
 npx vercel --prod
-
-# Or drag the folder into vercel.com/new
 ```
 
-The whole app is a single `index.html`. It deploys anywhere that serves static files.
+The entire app is `index.html` + 3 serverless functions. No environment variables, no config, no database.
 
 ---
 
-## Understanding Polymarket's Data Model
+## Going Further
 
-Polymarket uses a **CLOB (Central Limit Order Book)** on Polygon. A few concepts worth knowing:
-
-| Concept | What it means |
-|---------|--------------|
-| **Market** | A question with a defined resolution criteria (e.g., "Will X happen by Y date?") |
-| **Outcome Token** | Each possible outcome (YES/NO) has a unique ERC-1155 token ID on Polygon |
-| **Price** | Represents probability — a YES token at `0.72` means the market thinks there's a 72% chance |
-| **Order Book** | Standard bids/asks, priced between 0.00 and 1.00 |
-| **Resolution** | When a market resolves, winning tokens redeem for $1.00 USDC; losing tokens go to $0 |
-
-This is why reading an order book on Polymarket is reading collective probability estimates, not just supply/demand.
-
----
-
-## Going Further: What You Can Build
-
-PolyPocket only scratches the surface. With authentication, you can:
+PolyPocket is read-only. With authentication you can place orders, track positions, and subscribe to live WebSocket feeds:
 
 ```python
-# py-clob-client example
+# pip install py-clob-client
 from py_clob_client.client import ClobClient
+from py_clob_client.clob_types import OrderArgs, BUY
 
 client = ClobClient(
     "https://clob.polymarket.com",
@@ -147,30 +146,30 @@ order = client.create_and_post_order(OrderArgs(
 **Docs:** [docs.polymarket.com/api-reference/clients-sdks](https://docs.polymarket.com/api-reference/clients-sdks)
 
 Other things you could build on this foundation:
-- **Price alert bot** — monitor a market and DM when it crosses a threshold
-- **Portfolio tracker** — fetch open positions and P&L via the Core API
-- **Market aggregator** — group related markets (e.g., all 2026 election markets) and show combined signals
-- **Builder integration** — embed Polymarket widgets into your own app via the Builder Program
+- **Price alert bot** — monitor a market, DM when price crosses a threshold
+- **Portfolio tracker** — fetch positions and P&L via the Core API
+- **Embedded widgets** — drop live market cards into any site via the Builder Program
+- **Market aggregator** — group related events and surface combined probability signals
 
 ---
 
 ## Why This Exists
 
-This repo is a proof of concept built to demonstrate how quickly a useful integration can be assembled on Polymarket's public API surface.
+Built as a proof of concept to demonstrate how quickly a polished, production-quality integration can be assembled on Polymarket's public API surface.
 
-The goal was to ship something that:
-1. Actually works, live, no setup required
-2. Makes the API surface legible — every data point links back to the specific endpoint and docs page that produced it
-3. Could serve as a reference for developers building their first Polymarket integration
+Goals:
+1. Actually works, live, zero setup for the end user
+2. Makes the full API surface legible — every data point traces back to a specific endpoint and docs page
+3. Useful reference for developers starting their first Polymarket integration
 
 ---
 
 ## Stack
 
 - **HTML + vanilla JS** — zero dependencies, zero build step
-- **Polymarket Gamma API** — market data
-- **Polymarket CLOB API** — order books
-- **Vercel** — static hosting
+- **Vercel serverless** — CORS proxy + edge caching for the Polymarket APIs
+- **Polymarket Gamma API** — events, markets, tags, volumes
+- **Polymarket CLOB API** — order book depth
 
 ---
 
