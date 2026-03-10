@@ -111,13 +111,13 @@ export default function Home() {
       <section style={heroStyle}>
         {/* Decorative side images — blend into gradient bg */}
         <img src="/hero-deco.png" aria-hidden="true" style={{
-          position:'absolute', left:0, bottom:0,
+          position:'absolute', left:'1.25rem', bottom:'1rem',
           width:'clamp(180px,22vw,340px)', opacity:0.9,
           pointerEvents:'none', userSelect:'none',
           mixBlendMode:'multiply', display:'block',
         }} />
         <img src="/hero-deco.png" aria-hidden="true" style={{
-          position:'absolute', right:0, bottom:0,
+          position:'absolute', right:'1.25rem', bottom:'1rem',
           width:'clamp(180px,22vw,340px)', opacity:0.9,
           pointerEvents:'none', userSelect:'none',
           transform:'scaleX(-1)', mixBlendMode:'multiply',
