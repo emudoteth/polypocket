@@ -1,11 +1,21 @@
 # PolyPocket 🫧
 
-> The whole prediction market, in your pocket.
+[![Live](https://img.shields.io/badge/Live-polypocket.vercel.app-7c3aed?style=flat-square&logo=vercel)](https://polypocket.vercel.app)
+[![License: MIT](https://img.shields.io/badge/License-MIT-pink?style=flat-square)](./LICENSE)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black?style=flat-square&logo=next.js)](https://nextjs.org)
+[![Polymarket](https://img.shields.io/badge/Powered%20by-Polymarket-0652DD?style=flat-square)](https://polymarket.com)
 
-Live markets, real-time prices, and wallet-native trading — built on [Polymarket](https://polymarket.com).
+> **The whole prediction market, in your pocket.**
 
-**Live:** https://polypocket.vercel.app  
-**Stack:** Next.js 14 · ethers.js v5 · Recharts · Vercel serverless
+Live prediction markets, real-time order book depth, and wallet-native trading — built directly on the [Polymarket CLOB API](https://docs.polymarket.com).
+
+**→ [polypocket.vercel.app](https://polypocket.vercel.app)**
+
+Built as a proof-of-concept DevRel integration. No paid API keys. Non-custodial — your wallet, your keys.
+
+---
+
+**Stack:** Next.js 14 (Pages Router) · ethers.js v5 · Recharts · Vercel Serverless
 
 ---
 
