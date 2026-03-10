@@ -205,3 +205,22 @@ const leaderboard = raw
 ```
 
 **Status:** Not fixed yet — currently displayed as-is from the API. Worth filtering before shipping.
+
+### Leaderboard: Volume Field is Opaque
+
+The `volume` field returned by `/v1/leaderboard` does **not** correspond to 24h volume or any documented time window. It appears to be a cumulative all-time figure, but Polymarket does not define it in their public docs.
+
+```js
+// What the API returns
+{ name: "trader123", volume: 48293.12, ... }
+
+// What it is NOT:
+//   ❌ 24h volume  — that's event.volume24hr on the Gamma API
+//   ❌ 7d volume
+//   ❌ any labeled time period
+
+// What it probably is:
+//   ✅ All-time total trading volume for that wallet (undocumented)
+```
+
+**Implication:** Don't label this as "24h Volume" or "Recent Volume" in the UI. "Vol" or "All-time Vol" is the safest label until Polymarket documents the field. The displayed `$XXK` / `$XXM` formatting is correct — the ambiguity is in the *time period*, not the unit.
