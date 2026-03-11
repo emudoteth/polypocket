@@ -124,14 +124,13 @@ export default function Home() {
           position:'absolute', left:'1.25rem', bottom:'1rem',
           width:'clamp(180px,22vw,340px)', opacity:0.9,
           pointerEvents:'none', userSelect:'none',
-          mixBlendMode:'multiply', display:'block',
+          mixBlendMode:'multiply',
         }} />
         <img src="/hero-deco.png" aria-hidden="true" className="hero-deco" style={{
           position:'absolute', right:'1.25rem', bottom:'1rem',
           width:'clamp(180px,22vw,340px)', opacity:0.9,
           pointerEvents:'none', userSelect:'none',
           transform:'scaleX(-1)', mixBlendMode:'multiply',
-          display:'block',
         }} />
         <div style={heroBadge}>✨ Live · No Paid Key · Powered by Polymarket</div>
         <h1 style={h1Style}>
