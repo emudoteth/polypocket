@@ -1,6 +1,7 @@
 // cache-bust: 1773157374
 import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
+import Link from 'next/link';
 import { useWallet } from '../hooks/useWallet';
 import WalletButton from '../components/WalletButton';
 import TradeModal from '../components/TradeModal';
@@ -113,6 +114,11 @@ export default function Home() {
               display:'inline-block', animation:'pulse 2s infinite' }} />
             Live
           </span>
+          <Link href="/wheel" style={{ fontSize:'0.78rem', fontWeight:700,
+            color:'var(--purple)', textDecoration:'none', background:'var(--lilac)',
+            padding:'0.35rem 0.75rem', borderRadius:99, whiteSpace:'nowrap' }}>
+            🎰 Spin
+          </Link>
           <WalletButton />
         </div>
       </nav>
