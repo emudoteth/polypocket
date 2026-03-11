@@ -1,20 +1,41 @@
-/** Wallet connect button — wraps hooks/useWallet.js */
 import { useWallet } from '../hooks/useWallet';
 
-const POLYGON_CHAIN_ID = 137;
+// MetaMask mobile deep link — opens the app and navigates to this dapp
+const MM_DEEPLINK = 'https://metamask.app.link/dapp/polypocket.vercel.app';
+
+function hasEthereum() {
+  return typeof window !== 'undefined' && !!window.ethereum;
+}
 
 export default function WalletButton() {
-  const { address, chainId, isConnected, onPolygon, connecting, connect, disconnect, switchToPolygon } = useWallet();
+  const { address, isConnected, onPolygon, connecting, error, connect, disconnect, switchToPolygon } = useWallet();
 
   if (connecting) {
     return <button style={btnBase} disabled>Connecting…</button>;
   }
 
+  // No wallet detected — show install prompt
+  if (!hasEthereum() && !isConnected) {
+    return (
+      <a href={MM_DEEPLINK} target="_blank" rel="noopener noreferrer"
+        style={{ ...btnBase, ...btnConnect, textDecoration: 'none' }}>
+        🦊 Get MetaMask
+      </a>
+    );
+  }
+
   if (!isConnected) {
     return (
-      <button style={{ ...btnBase, ...btnConnect }} onClick={connect}>
-        Connect Wallet
-      </button>
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'0.25rem' }}>
+        <button style={{ ...btnBase, ...btnConnect }} onClick={connect}>
+          Connect Wallet
+        </button>
+        {error && (
+          <span style={{ fontSize:'0.65rem', color:'var(--red)', maxWidth:160, textAlign:'center', lineHeight:1.3 }}>
+            {error}
+          </span>
+        )}
+      </div>
     );
   }
 
