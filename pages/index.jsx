@@ -149,6 +149,7 @@ export default function Home() {
         </p>
         <div style={{ display:'flex', gap:'0.75rem', justifyContent:'center', flexWrap:'wrap' }}>
           <a href="#markets" style={btnPrimary}>Browse Live Markets →</a>
+          <Link href="/wheel" style={btnGhost}>🎰 Spin the Wheel</Link>
           <a href="https://github.com/emudoteth/polypocket" target="_blank" rel="noopener" style={btnGhost}>View Source</a>
         </div>
       </section>
