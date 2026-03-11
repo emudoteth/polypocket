@@ -262,3 +262,36 @@ outcomes: '["Will Donald Trump win?","Will Person AN win?","Will Person CX win?"
 These are real Polymarket market entries — not a bug in the integration. They represent real liquidity on unknown/unannounced candidates.
 
 **UI handling:** Placeholder outcomes (`/^Person [A-Z]+$/`) are deprioritised — sorted to the end of the card so named candidates show first. They still appear in the full market detail view.
+
+### Mobile Wallet Connection — `window.ethereum` is Unavailable
+
+Standard browser extensions (MetaMask, Brave Wallet, Rabby) inject `window.ethereum` into the page. On mobile browsers (Safari, Chrome), no such injection happens — `window.ethereum` is `undefined`, so any call to `connect()` silently fails or errors with no user feedback.
+
+**What we observed:**
+- "Connect Wallet" button appeared functional but did nothing on mobile Safari
+- No error was thrown, no modal appeared — completely silent failure
+- The bug only surfaced when testing on a real device, not in browser DevTools mobile simulation
+
+**The fix applied:**
+```js
+// Detect missing wallet before attempting connection
+function hasEthereum() {
+  return typeof window !== 'undefined' && !!window.ethereum;
+}
+
+// Show a deep link instead of a broken button
+if (!hasEthereum()) {
+  return (
+    <a href="https://metamask.app.link/dapp/polypocket.vercel.app">
+      🦊 Get MetaMask
+    </a>
+  );
+}
+```
+
+`metamask.app.link/dapp/<url>` opens the MetaMask mobile app and navigates to your dapp inside MetaMask's built-in browser, where `window.ethereum` IS available.
+
+**Alternatives for real mobile wallet support:**
+- **WalletConnect v2** — QR code + deep link flow, works cross-app. Requires a free project ID from [cloud.walletconnect.com](https://cloud.walletconnect.com). Add as `NEXT_PUBLIC_WC_PROJECT_ID` env var.
+- **Coinbase Wallet SDK** — similar mobile deep link approach, no project ID needed
+- **RainbowKit** — wraps both of the above with a polished modal UI, but adds ~400KB and wagmi dependency complexity (see gotcha #2)
