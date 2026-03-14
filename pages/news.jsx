@@ -172,11 +172,13 @@ function generateStory(event, idx) {
   if (winP < THRESHOLD || pct >= 100) return null; // skip fully settled
 
   const outcome = cap(names[winIdx] || 'Yes');
-  const title   = (event.title || '').replace(/\?$/,'').trim();
+  // Prefer the individual market question over the vague event umbrella title
+  const rawTitle = (market.question || market.groupItemTitle || event.title || '').trim();
+  const title    = rawTitle.replace(/\?$/,'').trim();
 
   if (!isGoodMarket(title, outcome)) return null;
 
-  const headline = titleToHeadline(event.title || title, outcome, pct, idx);
+  const headline = titleToHeadline(rawTitle || title, outcome, pct, idx);
   const subhead  = makeSubhead(title, outcome, pct, idx + 1);
   const body     = makeBody(title, outcome, pct, idx);
   const dateline = pick(DATELINES, idx * 7);
