@@ -5,7 +5,18 @@ import WalletButton from '../components/WalletButton';
 
 const THRESHOLD = 0.93;
 
-// ── Headline / story generation ───────────────────────────────────────────────
+// Sports-line outcomes with no narrative value
+const SKIP_OUTCOMES = new Set(['over','under','up','down','higher','lower','more','less','true','false']);
+
+// Only include markets with meaningful titles and outcomes
+function isGoodMarket(title, outcome) {
+  if (!title) return false;
+  if (title.includes('__') || title.includes('___')) return false; // blanked-out titles
+  // Pure sports score markets ("X vs Y" not starting with "Will")
+  if (/\bvs\.?\s+/i.test(title) && !/^will\s/i.test(title)) return false;
+  if (SKIP_OUTCOMES.has(outcome.toLowerCase())) return false;
+  return true;
+}
 
 const VERB_MAP = {
   win:'wins',lose:'loses',be:'is',become:'becomes',reach:'reaches',
@@ -20,98 +31,104 @@ const VERB_MAP = {
   come:'comes',return:'returns',issue:'issues',file:'files',
   confirm:'confirms',deny:'denies',approve:'approves',reject:'rejects',
   vote:'votes',exit:'exits',enter:'enters',join:'joins',quit:'quits',
-  fire:'fires',hire:'hires',appoint:'appoints',deploy:'deploys',
-  release:'releases',withdraw:'withdraws',survive:'survives',die:'dies',
-  recover:'recovers',collapse:'collapses',gross:'grosses',earn:'earns',
-  raise:'raises',cut:'cuts',increase:'increases',decrease:'decreases',
-  advance:'advances',decline:'declines',gain:'gains',expire:'expires',
-  default:'defaults',elect:'elects',defeat:'defeats',claim:'claims',
+  fire:'fires',hire:'hires',deploy:'deploys',release:'releases',
+  withdraw:'withdraws',survive:'survives',die:'dies',recover:'recovers',
+  gross:'grosses',earn:'earns',raise:'raises',cut:'cuts',
+  increase:'increases',decrease:'decreases',advance:'advances',
+  decline:'declines',gain:'gains',expire:'expires',elect:'elects',
+  defeat:'defeats',claim:'claims',secure:'secures',retain:'retains',
+  capture:'captures',fail:'fails',miss:'misses',
 };
+const VERB_REGEX = new RegExp(`\\b(${Object.keys(VERB_MAP).join('|')})\\b`, 'i');
+const verbify = w => VERB_MAP[w.toLowerCase()] || w;
 
-const VERB_REGEX = new RegExp(
-  `\\b(${Object.keys(VERB_MAP).join('|')})\\b`, 'i'
-);
-
-function verbify(word) { return VERB_MAP[word.toLowerCase()] || word; }
-
-function transformYes(body) {
-  return body.replace(VERB_REGEX, m => verbify(m));
+// "No" headline — topic-first, never leads with the word "No"
+function noHeadline(body, idx) {
+  const b = body.replace(/^(the\s+|a\s+)/i, '').trim();
+  const opts = [
+    `${b.toUpperCase()} — NOT HAPPENING`,
+    `${b.toUpperCase()} — MARKET SAYS NO`,
+    `TRADERS RULE OUT: ${b.slice(0,60).toUpperCase()}`,
+    `DEAD ON ARRIVAL: ${b.slice(0,60).toUpperCase()}`,
+    `${b.toUpperCase()} — RULED OUT BY TRADERS`,
+  ];
+  return opts[idx % opts.length];
 }
 
-function titleToHeadline(title, outcome, pct) {
+function titleToHeadline(title, outcome, pct, idx) {
   const clean = title.trim().replace(/\?$/, '');
-  const outUp = outcome.toUpperCase();
+  const stripped = clean.replace(/^[A-Z][A-Z0-9\s\-]+:\s*/, ''); // strip "NBA: " etc
+  const outLow = outcome.toLowerCase();
+  const outUp  = outcome.toUpperCase();
 
-  // Strip sport/category prefix like "NBA: " or "NFL: "
-  const stripped = clean.replace(/^[A-Z\s]+:\s*/, '');
-
-  // "Will X ..."
   const willMatch = stripped.match(/^Will\s+(.+)$/i);
   if (willMatch) {
     const body = willMatch[1].trim();
-    if (outcome.toLowerCase() === 'yes') {
-      return transformYes(body).toUpperCase();
-    } else if (outcome.toLowerCase() === 'no') {
-      return `${body.replace(/^the\s+/i,'').toUpperCase()} — NOT HAPPENING`;
+    if (outLow === 'yes') {
+      const verbified = body.replace(VERB_REGEX, m => verbify(m));
+      const suffixes = ['', ', MARKET SAYS', ': TRADERS CERTAIN', ', PER POLYMARKET', ' — CONFIRMED'];
+      return verbified.toUpperCase() + suffixes[idx % suffixes.length];
     }
-    // Named candidate / specific outcome
-    return `${outUp} — MARKET AT ${pct}%`;
+    if (outLow === 'no') return noHeadline(body, idx);
+    // Named outcome (e.g. "Trump", "Harris")
+    return `${outUp} — POLYMARKET REACHES ${pct}%`;
   }
 
-  // "Who will X?"
-  if (stripped.match(/^who will/i)) {
-    const rest = stripped.replace(/^who will\s*/i,'').trim();
-    return `${outUp} SET TO ${rest.toUpperCase()}`;
+  // Named non-yes/no outcome on non-question title
+  if (outLow !== 'yes' && outLow !== 'no') {
+    return `${outUp}: POLYMARKET AT ${pct}% CERTAINTY`;
   }
-
-  // "Which X will ...?"
-  if (stripped.match(/^which/i)) {
-    return `${outUp} — MARKET AT ${pct}% CERTAINTY`;
+  if (outLow === 'yes') {
+    return `${stripped.slice(0,65).toUpperCase()} — CONFIRMED AT ${pct}%`;
   }
-
-  // Fallback: use outcome as subject
-  return `MARKET REACHES ${pct}%: ${outUp}`;
+  return `${stripped.slice(0,65).toUpperCase()} — MARKET DECIDES AGAINST`;
 }
 
-// Subhead templates — reference actual market and outcome
-const SUBHEADS = [
-  (t,o,p) => `Polymarket traders have priced "${t}" at ${p}% in favor of ${o} — a number widely described as "basically settled."`,
-  (t,o,p) => `With odds on "${t}" sitting at ${p}%, the opposing side is running out of reasons to hold their position.`,
-  (t,o,p) => `The prediction market for "${t}" has arrived at a ${p}% consensus: ${o}.`,
-  (t,o,p) => `When ${p}% of on-chain capital says ${o}, this publication takes note — and so should you.`,
-  (t,o,p) => `${o} is the ${p}% verdict from Polymarket traders tracking "${t}."`,
-  (t,o,p) => `Traders wagering real USDC on "${t}" have spoken: ${o}, at ${p}%.`,
-];
+// Subheads — topic-aware, never use bare "Yes"/"No"
+function makeSubhead(title, outcome, pct, idx) {
+  const outLow = outcome.toLowerCase();
+  const isNo   = outLow === 'no';
+  const verb   = isNo ? 'ruled it out' : 'priced this in';
+  const side   = isNo ? 'against' : 'in favor of';
+  const desc   = isNo ? `this will not happen` : `${outcome} is the outcome`;
 
-// Body paragraph templates — narrative, reference the specific market
-const BODIES = [
-  (t, o, p, loser) =>
-    `POLYMARKET — The prediction market tracking the question of "${t}" has settled at ${p}% in favor of ${o}, according to on-chain data reviewed by this publication. The figure, derived from real money wagered on Polygon by traders motivated by the unusual incentive of not losing their USDC, leaves little room for alternative interpretations.\n\n` +
-    `"At ${p}%, you've stopped hedging your sentences," said one anonymous trader who requested their position size remain undisclosed. "You've started writing calendar invites." Market depth on the ${o} side remains robust, while the ${loser}% still positioned against it have been characterised by observers as "committed" — a word that can be meant kindly or otherwise.\n\n` +
-    `No official statement has been issued regarding this development. The market, as is its custom, expressed its view in basis points rather than press releases.`,
+  const opts = [
+    `Polymarket traders have pushed the market for "${title}" to ${pct}% — ${desc}.`,
+    `With odds at ${pct}%, the market on "${title}" has delivered a verdict: ${desc}.`,
+    `The prediction market tracking "${title}" sits at ${pct}% ${side} — a number few would call uncertain.`,
+    `${pct}% of on-chain capital has ${verb} on "${title}." The remaining ${100 - pct}% are committed to a difficult position.`,
+    `When ${pct}% of Polymarket says ${desc}, this publication considers it news worth printing.`,
+  ];
+  return opts[idx % opts.length];
+}
 
-  (t, o, p, loser) =>
-    `The question — "${t}" — was once considered genuinely open. It is no longer considered genuinely open.\n\n` +
-    `Polymarket traders, armed with USDC and the full weight of financial incentive, have pushed the probability of ${o} to ${p}%. This represents a level of collective confidence that market analysts describe as "not subtle," "fairly unambiguous," and in one instance, "the kind of number you frame and put on a wall."\n\n` +
-    `The remaining ${loser}% wagered on the alternative outcome declined to comment. Their capital, however, continues to speak on their behalf — quietly, and in the direction of loss.`,
+// Body paragraphs — contextual, never just say "outcome is Yes/No"
+function makeBody(title, outcome, pct, idx) {
+  const outLow  = outcome.toLowerCase();
+  const isNo    = outLow === 'no';
+  const isYes   = outLow === 'yes';
+  const loser   = 100 - pct;
+  // Human-readable outcome description
+  const desc    = isYes ? 'this will happen' : isNo ? 'this will not happen' : outcome;
+  const descCap = isYes ? 'This will happen' : isNo ? 'This will not happen' : outcome;
+  const side    = isNo  ? 'against this outcome' : `on ${outcome}`;
 
-  (t, o, p, loser) =>
-    `In a development that has surprised precisely no one monitoring prediction markets, Polymarket's market for "${t}" has priced ${o} at ${p}% certainty. The market, which operates on the Polygon blockchain and settles in USDC, has become a one-way street.\n\n` +
-    `Liquidity providers on the ${o} side are described as "comfortable." Their counterparts, holding the remaining ${loser}%, are described using a wider range of vocabulary that this publication has chosen not to reproduce in full.\n\n` +
-    `This is, we are compelled to note, how prediction markets are supposed to work: real stakes, real information, and a number that says what the smart money actually thinks rather than what it tells reporters.`,
+  const opts = [
+    `POLYMARKET — The prediction market tracking the question of "${title}" has settled at ${pct}% in favor of ${desc}, according to on-chain data reviewed by this publication. The figure, derived from real money wagered on Polygon by traders motivated by the time-honoured incentive of not losing their USDC, leaves little room for alternative interpretations.\n\n"At ${pct}%, you've stopped hedging your sentences," said one anonymous trader who requested their position size remain undisclosed. "You've started writing calendar invites."\n\nThe remaining ${loser}% still positioned ${side} declined to comment. Their wallets, however, continue to speak on their behalf.`,
 
-  (t, o, p, loser) =>
-    `Sources familiar with the Polymarket order book confirm that ${o} is now priced at ${p}% for the question of "${t}" — a figure that traders reached not through editorial consensus or expert polling, but through the time-honoured mechanism of putting money on it.\n\n` +
-    `"The market doesn't care about narratives," said one participant, who added that they had closed their position at a comfortable profit and were now watching the remaining ${loser}% "from the bleachers."\n\n` +
-    `Whether ${o} ultimately resolves as correct remains, technically, a matter for the future. The market, however, has already made up its mind.`,
-];
+    `The question — "${title}" — was once considered genuinely open. It is no longer considered genuinely open.\n\nPolymarket traders, armed with USDC and the full weight of financial incentive, have collectively concluded that ${desc}. The ${pct}% figure represents what analysts describe as "the kind of number you frame and put on a wall."\n\nThe ${loser}% on the other side have been characterised by market watchers using a range of vocabulary this publication has chosen not to reproduce in full.`,
+
+    `In a development that surprised no one monitoring decentralized prediction markets, Polymarket's market for "${title}" has priced ${desc} at ${pct}% certainty. This is, we note, how prediction markets are supposed to work: real stakes, real information, and a number that says what the smart money actually thinks.\n\nLiquidity providers on the majority side are described as "comfortable." Their counterparts, holding the remaining ${loser}%, are described otherwise.\n\nNo official statement has been issued. The market had already issued one.`,
+
+    `Sources familiar with the Polymarket order book confirm that the market for "${title}" stands at ${pct}% — a figure reached not through editorial consensus or expert polling, but through the mechanism of people putting real money on it.\n\n"The market doesn't care about narratives," said one participant, adding they had closed their position profitably. The ${loser}% still on the other side were described as "watching from the bleachers."\n\nWhether ${desc} ultimately resolves correctly remains, technically, a matter for the future. The market has already made up its mind.`,
+  ];
+  return opts[idx % opts.length];
+}
 
 const DATELINES = ['NEW YORK','WASHINGTON','LONDON','BRUSSELS','DAVOS','SINGAPORE','DUBAI','MIAMI','GENEVA','TOKYO'];
 const BYLINES   = ['Staff Correspondent','Senior Markets Analyst','Blockchain Affairs Desk','Our Prediction Bureau','Chief Inevitable-Outcome Officer','The Algorithm','A Very Confident Source'];
-
-function pick(arr, seed) { return arr[Math.abs(seed) % arr.length]; }
-function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
-
+const pick = (arr, seed) => arr[Math.abs(seed) % arr.length];
+const cap  = s => s ? s[0].toUpperCase() + s.slice(1) : s;
 const parseJson = (s, fb) => { try { return JSON.parse(s||'null')??fb; } catch { return fb; } };
 
 function generateStory(event, idx) {
@@ -126,21 +143,20 @@ function generateStory(event, idx) {
   prices.forEach((p, i) => { const f = parseFloat(p); if (f > winP) { winP = f; winIdx = i; } });
   if (winP < THRESHOLD) return null;
 
-  const pct     = Math.round(winP * 100);
   const outcome = cap(names[winIdx] || 'Yes');
-  const loser   = Math.round((1 - winP) * 100);
-  const title   = (event.title || 'this prediction').replace(/\?$/,'').trim();
+  const title   = (event.title || '').replace(/\?$/,'').trim();
 
-  const headline = titleToHeadline(event.title || title, outcome, pct);
-  const subhead  = pick(SUBHEADS, idx + 1)(title, outcome, pct);
-  const body     = pick(BODIES, idx)(title, outcome, pct, loser);
+  if (!isGoodMarket(title, outcome)) return null;
+
+  const pct      = Math.round(winP * 100);
+  const headline = titleToHeadline(event.title || title, outcome, pct, idx);
+  const subhead  = makeSubhead(title, outcome, pct, idx + 1);
+  const body     = makeBody(title, outcome, pct, idx);
   const dateline = pick(DATELINES, idx * 7);
   const byline   = pick(BYLINES, idx * 3 + 2);
 
   return { headline, subhead, body, dateline, byline, pct, outcome, title, slug: event.slug };
 }
-
-// ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function NewsPage() {
   const [stories, setStories] = useState([]);
@@ -154,7 +170,7 @@ export default function NewsPage() {
       .then(r => r.json())
       .then(data => {
         const generated = [];
-        data.forEach((event) => {
+        data.forEach(event => {
           const market = (event.markets||[])[0];
           if (!market) return;
           const prices = parseJson(market.outcomePrices, []);
@@ -190,22 +206,19 @@ export default function NewsPage() {
       </nav>
 
       <div style={{ background:'#faf7f0', minHeight:'100vh' }}>
-
-        {/* Masthead */}
         <header style={{ borderBottom:'3px double #1a1a1a', borderTop:'3px solid #1a1a1a',
           padding:'1rem 1.5rem 0.75rem', textAlign:'center',
           background:'white', maxWidth:900, margin:'0 auto' }}>
           <div style={{ fontSize:'0.65rem', letterSpacing:'0.15em', textTransform:'uppercase',
             color:'#555', borderBottom:'1px solid #ccc', paddingBottom:'0.4rem', marginBottom:'0.5rem' }}>
-            All The Market Certainty That's Fit To Print
+            All The Market Certainty That\'s Fit To Print
           </div>
           <h1 style={{ fontFamily:'Georgia,serif', fontSize:'clamp(2rem,6vw,3.5rem)',
             fontWeight:900, margin:0, letterSpacing:'-0.02em', lineHeight:1 }}>
             The Poly Gazette
           </h1>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
-            marginTop:'0.5rem', fontSize:'0.7rem', color:'#555', borderTop:'1px solid #ccc',
-            paddingTop:'0.4rem' }}>
+            marginTop:'0.5rem', fontSize:'0.7rem', color:'#555', borderTop:'1px solid #ccc', paddingTop:'0.4rem' }}>
             <span>Est. 2024 · Powered by USDC</span>
             <span style={{ fontWeight:700 }}>{today}</span>
             <span>Vol. {stories.length} · {stories.length} Stories</span>
@@ -219,23 +232,19 @@ export default function NewsPage() {
 
         <main style={{ maxWidth:900, margin:'0 auto', padding:'1.5rem 1rem',
           background:'white', boxShadow:'0 0 40px rgba(0,0,0,0.06)' }}>
-
           {loading && (
             <div style={{ textAlign:'center', padding:'3rem', fontFamily:'Georgia,serif',
               color:'#888', fontStyle:'italic' }}>
               Consulting the markets for breaking certainty…
             </div>
           )}
-
           {!loading && stories.length === 0 && (
             <div style={{ textAlign:'center', padding:'3rem', fontFamily:'Georgia,serif',
               color:'#888', fontStyle:'italic' }}>
               No markets above 93% confidence today. The world remains uncertain.
             </div>
           )}
-
           {stories[0] && <LeadStory story={stories[0]} />}
-
           {stories.length > 1 && (
             <div style={{ borderTop:'2px solid #1a1a1a', borderBottom:'1px solid #ccc',
               padding:'0.2rem 0', textAlign:'center', margin:'1.5rem 0',
@@ -243,7 +252,6 @@ export default function NewsPage() {
               More Inevitable Developments
             </div>
           )}
-
           <div style={{ columns:'auto 260px', columnGap:'1.5rem', columnRule:'1px solid #e0e0e0' }}>
             {stories.slice(1).map((s, i) => <SmallStory key={i} story={s} />)}
           </div>
@@ -254,10 +262,7 @@ export default function NewsPage() {
           fontFamily:'Georgia,serif', fontStyle:'italic', background:'white' }}>
           The Poly Gazette is a satirical publication. Stories are generated from Polymarket prediction market data.
           Nothing here constitutes financial, legal, or journalistic advice. Seriously.{' '}
-          Trade responsibly at{' '}
-          <a href="https://polymarket.com" target="_blank" rel="noopener noreferrer" style={{ color:'#555' }}>
-            polymarket.com
-          </a>.
+          Trade at <a href="https://polymarket.com" target="_blank" rel="noopener noreferrer" style={{ color:'#555' }}>polymarket.com</a>.
         </footer>
       </div>
     </>
@@ -285,9 +290,7 @@ function LeadStory({ story }) {
         <span><strong>{story.dateline}</strong> — By {story.byline}</span>
         <a href={`https://polymarket.com/event/${story.slug||''}`}
           target="_blank" rel="noopener noreferrer"
-          style={{ color:'#888', textDecoration:'underline' }}>
-          See market ↗
-        </a>
+          style={{ color:'#888', textDecoration:'underline' }}>See market ↗</a>
       </div>
       <div style={{ fontFamily:'Georgia,serif', fontSize:'0.92rem', lineHeight:1.75,
         color:'#2a2a2a', columnCount:2, columnGap:'1.5rem', columnRule:'1px solid #e0e0e0' }}>
@@ -324,9 +327,7 @@ function SmallStory({ story }) {
       <div style={{ fontSize:'0.65rem', color:'#aaa', fontFamily:'Georgia,serif' }}>
         <strong>{story.dateline}</strong> · {story.byline} ·{' '}
         <a href={`https://polymarket.com/event/${story.slug||''}`}
-          target="_blank" rel="noopener noreferrer" style={{ color:'#aaa' }}>
-          See market ↗
-        </a>
+          target="_blank" rel="noopener noreferrer" style={{ color:'#aaa' }}>See market ↗</a>
       </div>
     </article>
   );
