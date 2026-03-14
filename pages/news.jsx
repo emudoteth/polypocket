@@ -168,14 +168,14 @@ function generateStory(event, idx) {
 
   let winIdx = 0, winP = 0;
   prices.forEach((p, i) => { const f = parseFloat(p); if (f > winP) { winP = f; winIdx = i; } });
-  if (winP < THRESHOLD || winP >= 1.0) return null; // skip fully settled (100%)
+  const pct = Math.round(winP * 100);
+  if (winP < THRESHOLD || pct >= 100) return null; // skip fully settled
 
   const outcome = cap(names[winIdx] || 'Yes');
   const title   = (event.title || '').replace(/\?$/,'').trim();
 
   if (!isGoodMarket(title, outcome)) return null;
 
-  const pct      = Math.round(winP * 100);
   const headline = titleToHeadline(event.title || title, outcome, pct, idx);
   const subhead  = makeSubhead(title, outcome, pct, idx + 1);
   const body     = makeBody(title, outcome, pct, idx);
