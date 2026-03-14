@@ -114,6 +114,11 @@ export default function Home() {
               display:'inline-block', animation:'pulse 2s infinite' }} />
             Live
           </span>
+          <Link href="/news" style={{ fontSize:'0.78rem', fontWeight:700,
+            color:'#92400e', textDecoration:'none', background:'#fef3c7',
+            padding:'0.35rem 0.75rem', borderRadius:99, whiteSpace:'nowrap' }}>
+            📰 News
+          </Link>
           <Link href="/wheel" style={{ fontSize:'0.78rem', fontWeight:700,
             color:'var(--purple)', textDecoration:'none', background:'var(--lilac)',
             padding:'0.35rem 0.75rem', borderRadius:99, whiteSpace:'nowrap' }}>
@@ -150,6 +155,7 @@ export default function Home() {
         <div style={{ display:'flex', gap:'0.75rem', justifyContent:'center', flexWrap:'wrap' }}>
           <a href="#markets" style={btnPrimary}>Browse Live Markets →</a>
           <Link href="/wheel" style={btnGhost}>🎰 Spin the Wheel</Link>
+          <Link href="/news" style={btnGhost}>📰 The Poly Gazette</Link>
           <a href="https://github.com/emudoteth/polypocket" target="_blank" rel="noopener" style={btnGhost}>View Source</a>
         </div>
       </section>
