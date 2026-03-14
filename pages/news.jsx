@@ -74,14 +74,26 @@ function titleToHeadline(title, outcome, pct, idx) {
     return `${outUp} — POLYMARKET REACHES ${pct}%`;
   }
 
-  // Named non-yes/no outcome on non-question title
+  // Named non-yes/no outcome on non-question title (e.g. "Trump", "AfD")
   if (outLow !== 'yes' && outLow !== 'no') {
-    return `${outUp}: POLYMARKET AT ${pct}% CERTAINTY`;
+    const suffixes = [': POLYMARKET REACHES '+pct+'%', ' LOCKS IN AT '+pct+'%', ': TRADERS CERTAIN'];
+    return `${outUp}${suffixes[idx % suffixes.length]}`;
   }
-  if (outLow === 'yes') {
-    return `${stripped.slice(0,65).toUpperCase()} — CONFIRMED AT ${pct}%`;
-  }
-  return `${stripped.slice(0,65).toUpperCase()} — MARKET DECIDES AGAINST`;
+  // Non-question title + Yes/No — lead with the topic, not the outcome word
+  const noFallbacks = [
+    `${stripped.slice(0,65).toUpperCase()} — NOT HAPPENING, TRADERS SAY`,
+    `TRADERS RULE OUT: ${stripped.slice(0,60).toUpperCase()}`,
+    `DEAD ON ARRIVAL: ${stripped.slice(0,60).toUpperCase()}`,
+    `${stripped.slice(0,65).toUpperCase()} — MARKET VERDICT IS IN`,
+  ];
+  const yesFallbacks = [
+    `${stripped.slice(0,65).toUpperCase()} — CONFIRMED AT ${pct}%`,
+    `IT'S HAPPENING: ${stripped.slice(0,60).toUpperCase()}`,
+    `${stripped.slice(0,65).toUpperCase()} — TRADERS LOCK IT IN`,
+  ];
+  return outLow === 'no'
+    ? noFallbacks[idx % noFallbacks.length]
+    : yesFallbacks[idx % yesFallbacks.length];
 }
 
 // Subheads — topic-aware, never use bare "Yes"/"No"
@@ -141,7 +153,7 @@ function generateStory(event, idx) {
 
   let winIdx = 0, winP = 0;
   prices.forEach((p, i) => { const f = parseFloat(p); if (f > winP) { winP = f; winIdx = i; } });
-  if (winP < THRESHOLD) return null;
+  if (winP < THRESHOLD || winP >= 1.0) return null; // skip fully settled (100%)
 
   const outcome = cap(names[winIdx] || 'Yes');
   const title   = (event.title || '').replace(/\?$/,'').trim();
