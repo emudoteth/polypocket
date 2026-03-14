@@ -74,6 +74,21 @@ function titleToHeadline(title, outcome, pct, idx) {
     return `${outUp} — POLYMARKET REACHES ${pct}%`;
   }
 
+  // "Who will X?" — named outcome becomes declarative subject
+  if (stripped.match(/^Who will/i)) {
+    const rest = stripped.replace(/^who will\s*/i, '').trim();
+    const action = rest
+      .replace(/^be\s+confirmed\s+as\b/i, 'confirmed as')
+      .replace(/^be\s+named\b/i, 'named')
+      .replace(/^be\s+appointed\b/i, 'appointed')
+      .replace(/^be\s+elected\b/i, 'elected')
+      .replace(/^be\s+(the\s+(?:next|new)\b)/i, 'is $1')
+      .replace(/^be\s+/i, '')
+      .replace(VERB_REGEX, m => verbify(m));
+    const whoSuffixes = ['', ', MARKET SAYS', ', TRADERS CONCLUDE', ` — POLYMARKET AT ${pct}%`];
+    return `${outUp} ${action.toUpperCase()}${whoSuffixes[idx % whoSuffixes.length]}`;
+  }
+
   // Named non-yes/no outcome on non-question title (e.g. "Trump", "AfD")
   if (outLow !== 'yes' && outLow !== 'no') {
     const suffixes = [': POLYMARKET REACHES '+pct+'%', ' LOCKS IN AT '+pct+'%', ': TRADERS CERTAIN'];
