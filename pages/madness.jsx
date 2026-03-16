@@ -157,7 +157,7 @@ function MatchCard({ game, odds, color }) {
             <span style={{
               fontSize:'0.65rem', fontWeight:800, flexShrink:0,
               color: fav===i ? color : 'rgba(255,255,255,0.3)',
-            }}>{i===0?o.t1:o.t2}%</span>
+            }}>{i===0?p1:p2}%</span>
           )}
         </div>
       ))}
