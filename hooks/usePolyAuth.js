@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const AUTH_DOMAIN = { name: 'ClobAuthDomain', version: '1' }; // no chainId per Polymarket spec
+const AUTH_DOMAIN = { name: 'ClobAuthDomain', version: '1', chainId: 137 }; // chainId required per clob-client source
 const AUTH_TYPES  = {
   ClobAuth: [
     { name: 'address',   type: 'address' },
