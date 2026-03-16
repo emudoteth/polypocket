@@ -3,6 +3,36 @@ import Head from 'next/head';
 import Link from 'next/link';
 import WalletButton from '../components/WalletButton';
 
+
+// Match team probability by name + seed — never trust raw API index order
+function getProbs(game, o) {
+  if (!o) return [null, null];
+  const [t1, t2] = game.teams;
+  const n1 = (o.n1||'').toLowerCase();
+  const n2 = (o.n2||'').toLowerCase();
+
+  function hit(teamName, outcomeName) {
+    if (!teamName || !outcomeName) return false;
+    const t = teamName.toLowerCase();
+    if (outcomeName.includes(t)) return true;
+    return t.split(/\s+/).filter(w=>w.length>3).some(w=>outcomeName.includes(w));
+  }
+
+  // If both teams found in opposite slots → assign correctly
+  if (hit(t1.name,n1) && hit(t2.name,n2)) return [o.t1, o.t2];
+  if (hit(t1.name,n2) && hit(t2.name,n1)) return [o.t2, o.t1];
+
+  // Partial match: one team found
+  if (hit(t1.name,n2) && !hit(t1.name,n1)) return [o.t2, o.t1];
+  if (hit(t2.name,n2) && !hit(t2.name,n1)) return [o.t1, o.t2];
+
+  // Seed fallback: lower seed = stronger = higher probability
+  const hi=Math.max(o.t1,o.t2), lo=Math.min(o.t1,o.t2);
+  if (t1.seed < t2.seed) return [hi, lo];
+  if (t1.seed > t2.seed) return [lo, hi];
+  return [o.t1, o.t2]; // same seed (play-in), use raw
+}
+
 // ── Constants ────────────────────────────────────────────────────────────────
 const CARD_H  = 68;   // px height of one matchup card
 const CARD_G  = 6;    // px gap between adjacent R1 cards
@@ -101,18 +131,7 @@ function useOdds() {
 function MatchCard({ game, odds, color }) {
   const o = odds?.[game.slug];
   const [t1, t2] = game.teams;
-  // Match each team's probability by name, not by index
-  function probFor(team, idx) {
-    if (!o) return null;
-    const abbr = team.name.toLowerCase();
-    // Check which API outcome name contains our abbreviated team name
-    if (o.n1 && o.n2) {
-      if (o.n1.includes(abbr) || abbr.split(' ').some(w => w.length > 3 && o.n1.includes(w))) return o.t1;
-      if (o.n2.includes(abbr) || abbr.split(' ').some(w => w.length > 3 && o.n2.includes(w))) return o.t2;
-    }
-    return idx === 0 ? o.t1 : o.t2; // fallback to index
-  }
-  const p1 = probFor(t1, 0), p2 = probFor(t2, 1);
+  const [p1, p2] = getProbs(game, o);
   const fav = o ? (p1 >= p2 ? 0 : 1) : -1;
   const live = !!o;
 
@@ -261,16 +280,7 @@ function FirstFourCard({ game, odds }) {
   const color = REGION_COLOR[game.region];
   const o = odds?.[game.slug];
   const [t1,t2] = game.teams;
-  function ffProb(team, idx) {
-    if (!o) return null;
-    const abbr = team.name.toLowerCase();
-    if (o.n1 && o.n2) {
-      if (o.n1.includes(abbr) || abbr.split(' ').some(w => w.length > 3 && o.n1.includes(w))) return o.t1;
-      if (o.n2.includes(abbr) || abbr.split(' ').some(w => w.length > 3 && o.n2.includes(w))) return o.t2;
-    }
-    return idx === 0 ? o.t1 : o.t2;
-  }
-  const fp1 = ffProb(t1,0), fp2 = ffProb(t2,1);
+  const [fp1,fp2] = getProbs(game, o);
   const fav = o ? (fp1 >= fp2 ? 0 : 1) : -1;
 
   return (
