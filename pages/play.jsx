@@ -184,7 +184,7 @@ function BetModal({ game, odds, wallet, polyAuth, onClose }) {
         setStep('signing-auth');
         setTxMsg('Authorizing with Polymarket — sign the message in your wallet…');
         await polyAuth.authorize();
-        if (polyAuth.status === 'error') throw new Error(polyAuth.error || 'Auth failed');
+        if (polyAuth.status === 'error') throw new Error(polyAuth.error || 'Auth failed. If this is your first time, visit polymarket.com, connect your wallet, and accept their Terms of Service first.');
       }
 
       // 2. Check + get USDC approval
