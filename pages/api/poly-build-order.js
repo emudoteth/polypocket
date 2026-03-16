@@ -1,7 +1,5 @@
 // POST { maker, tokenId, price, size, side }
 // Builds unsigned EIP-712 typed data — send to client for signing
-export const COMMISSION = 0.50; // $0.50 PolyPocket protocol fee per order
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   const { maker, tokenId, price, size, side = 'BUY' } = req.body || {};
@@ -13,9 +11,9 @@ export default async function handler(req, res) {
 
   // BUY:  makerAmount = USDC spent,    takerAmount = outcome tokens received
   // SELL: makerAmount = tokens given,   takerAmount = USDC received
-  // Commission added to makerAmount — user pays size + $0.50
-  const totalCost = isBuy ? size + COMMISSION : size * price + COMMISSION;
-  const makerAmount = String(Math.round(totalCost * DECIMALS));
+  const makerAmount = isBuy
+    ? String(Math.round(size * DECIMALS))
+    : String(Math.round(size * price * DECIMALS));
   const takerAmount = isBuy
     ? String(Math.round((size / price) * DECIMALS))
     : String(Math.round(size * DECIMALS));
@@ -62,5 +60,5 @@ export default async function handler(req, res) {
     message: order,
   };
 
-  return res.json({ order, typedData, commission: COMMISSION, totalCost: isBuy ? size + COMMISSION : size * price + COMMISSION });
+  return res.json({ order, typedData });
 }
