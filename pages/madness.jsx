@@ -85,7 +85,11 @@ function useOdds() {
           const mk = e.markets?.[0];
           if (!mk || !e.slug) return;
           const p = pj(mk.outcomePrices,[]);
-          if (p.length >= 2) m[e.slug] = { t1:Math.round(parseFloat(p[0])*100), t2:Math.round(parseFloat(p[1])*100) };
+          const n = pj(mk.outcomes,[]);
+          if (p.length >= 2) m[e.slug] = {
+            t1:Math.round(parseFloat(p[0])*100), t2:Math.round(parseFloat(p[1])*100),
+            n1:(n[0]||'').toLowerCase(), n2:(n[1]||'').toLowerCase(),
+          };
         });
         setOdds(m);
       }).catch(()=>{});
@@ -97,7 +101,19 @@ function useOdds() {
 function MatchCard({ game, odds, color }) {
   const o = odds?.[game.slug];
   const [t1, t2] = game.teams;
-  const fav = o ? (o.t1 >= o.t2 ? 0 : 1) : -1;
+  // Match each team's probability by name, not by index
+  function probFor(team, idx) {
+    if (!o) return null;
+    const abbr = team.name.toLowerCase();
+    // Check which API outcome name contains our abbreviated team name
+    if (o.n1 && o.n2) {
+      if (o.n1.includes(abbr) || abbr.split(' ').some(w => w.length > 3 && o.n1.includes(w))) return o.t1;
+      if (o.n2.includes(abbr) || abbr.split(' ').some(w => w.length > 3 && o.n2.includes(w))) return o.t2;
+    }
+    return idx === 0 ? o.t1 : o.t2; // fallback to index
+  }
+  const p1 = probFor(t1, 0), p2 = probFor(t2, 1);
+  const fav = o ? (p1 >= p2 ? 0 : 1) : -1;
   const live = !!o;
 
   return (
