@@ -179,12 +179,19 @@ function BetModal({ game, odds, wallet, polyAuth, onClose }) {
     setResult(null);
 
     try {
-      // 1. Ensure Polymarket auth
+      // 1. Ensure Polymarket auth — use return value, not stale state
+      let activeCreds = polyAuth.creds;
       if (polyAuth.status !== 'ready') {
+        if (polyAuth.status === 'tos-pending') {
+          throw new Error('Click "✅ I\'ve accepted — Sign" in the top bar to finish authorization first.');
+        }
         setStep('signing-auth');
         setTxMsg('Authorizing with Polymarket — sign the message in your wallet…');
-        await polyAuth.authorize();
-        if (polyAuth.status === 'error') throw new Error(polyAuth.error || 'Auth failed. If this is your first time, visit polymarket.com, connect your wallet, and accept their Terms of Service first.');
+        const authResult = await polyAuth.authorize();
+        if (!authResult?.success) {
+          throw new Error(authResult?.error || 'Authorization failed. Visit polymarket.com, connect your wallet and accept their Terms of Service, then try again.');
+        }
+        activeCreds = authResult.creds;
       }
 
       // 2. Check + get USDC approval
@@ -224,7 +231,7 @@ function BetModal({ game, odds, wallet, polyAuth, onClose }) {
       // 6. Submit via server
       setStep('submitting');
       setTxMsg('Submitting order to Polymarket…');
-      const creds = polyAuth.creds;
+      const creds = activeCreds || polyAuth.creds;
       const submitR = await fetch('/api/poly-submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
