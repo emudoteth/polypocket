@@ -20,6 +20,7 @@ export function useWallet() {
   const [address, setAddress]     = useState(null);
   const [chainId, setChainId]     = useState(null);
   const [signer,  setSigner]      = useState(null);
+  const [providerRef, setProviderRef] = useState(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError]         = useState(null);
 
