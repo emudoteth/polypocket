@@ -18,7 +18,7 @@ export default async function handler(req, res) {
       },
     });
     const data = await r.json();
-    if (!r.ok) return res.status(r.status).json(data);
+    if (!r.ok) return res.status(r.status).json({ error: data.error || JSON.stringify(data) });
     return res.json(data);
   } catch (e) {
     return res.status(500).json({ error: e.message });
