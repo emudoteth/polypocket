@@ -9,6 +9,24 @@ function l2Sig(secret, timestamp, method, path, body = '') {
 
 // POST { order, signature, apiKey, secret, passphrase }
 // Attaches L2 HMAC auth headers and submits signed order to Polymarket CLOB
+// Gets the real client IP from Next.js request headers
+function clientIp(req) {
+  return (
+    (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
+    req.headers['x-real-ip'] ||
+    req.socket?.remoteAddress ||
+    ''
+  );
+}
+// Gets the real client IP from Next.js request headers
+function clientIp(req) {
+  return (
+    (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
+    req.headers['x-real-ip'] ||
+    req.socket?.remoteAddress ||
+    ''
+  );
+}
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   const { order, signature, apiKey, secret, passphrase } = req.body || {};
@@ -33,6 +51,7 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: {
         'Content-Type':    'application/json',
+        'X-Forwarded-For': clientIp(req),
         'POLY_ADDRESS':    order.maker,
         'POLY_SIGNATURE':  hmac,
         'POLY_TIMESTAMP':  timestamp,
