@@ -148,22 +148,29 @@ export default function Home() {
           pointerEvents:'none', userSelect:'none',
           transform:'scaleX(-1)', mixBlendMode:'multiply',
         }} />
-        <div style={heroBadge}>✨ Live · No Paid Key · Powered by Polymarket</div>
-        <h1 style={h1Style}>
-          <img src="/logo.png" alt="" style={{ width:64, height:64, borderRadius:14, objectFit:'cover', verticalAlign:'middle', marginRight:'0.4rem', display:'inline-block' }} />
-          PolyPocket
-        </h1>
-        <p style={heroSub}>
-          The whole prediction market, <strong style={{ color:'var(--purple)' }}>in your pocket.</strong>
-          {' '}Live markets, real-time prices, and order book depth — with wallet-native trading.
-        </p>
-        <div style={{ display:'flex', gap:'0.75rem', justifyContent:'center', flexWrap:'wrap' }}>
-          <a href="#markets" style={btnPrimary}>Browse Live Markets →</a>
-          <Link href="/wheel" style={btnGhost}>🎰 Spin the Wheel</Link>
-          <Link href="/madness" style={btnGhost}>🏀 March Madness</Link>
-          <Link href="/play" style={btnGhost}>🎰 Bracket Bets</Link>
-          <Link href="/news" style={btnGhost}>📰 The Poly Gazette</Link>
-          <a href="https://github.com/emudoteth/polypocket" target="_blank" rel="noopener" style={btnGhost}>View Source</a>
+        {/* Centered content — max width keeps it clear of absolutely-positioned deco images */}
+        <div style={{ position:'relative', zIndex:1, maxWidth:640, margin:'0 auto', width:'100%', padding:'0 1rem', boxSizing:'border-box' }}>
+          <div style={heroBadge}>✨ Live · No Paid Key · Powered by Polymarket</div>
+          <h1 style={h1Style}>
+            <img src="/logo.png" alt="" style={{ width:64, height:64, borderRadius:14, objectFit:'cover', verticalAlign:'middle', marginRight:'0.4rem', display:'inline-block' }} />
+            PolyPocket
+          </h1>
+          <p style={heroSub}>
+            The whole prediction market, <strong style={{ color:'var(--purple)' }}>in your pocket.</strong>
+            {' '}Live markets, real-time prices, and order book depth — with wallet-native trading.
+          </p>
+          {/* Primary CTA */}
+          <div style={{ display:'flex', justifyContent:'center', marginBottom:'0.6rem' }}>
+            <a href="#markets" style={btnPrimary}>Browse Live Markets →</a>
+          </div>
+          {/* Secondary nav buttons — wrap freely, centered */}
+          <div style={{ display:'flex', gap:'0.5rem', justifyContent:'center', flexWrap:'wrap' }}>
+            <Link href="/play" style={btnGhost}>🏀 Bracket Bets</Link>
+            <Link href="/wheel" style={btnGhost}>🎰 Spin the Wheel</Link>
+            <Link href="/madness" style={btnGhost}>📊 Read-Only Bracket</Link>
+            <Link href="/news" style={btnGhost}>📰 The Poly Gazette</Link>
+            <a href="https://github.com/emudoteth/polypocket" target="_blank" rel="noopener" style={btnGhost}>View Source</a>
+          </div>
         </div>
       </section>
 
