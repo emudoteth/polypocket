@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 // EIP-712 typed data for Polymarket L1 auth (derive API key)
-const AUTH_DOMAIN = { name: 'ClobAuthDomain', version: '1', chainId: 137 };
+const AUTH_DOMAIN = { name: 'ClobAuthDomain', version: '1' }; // no chainId — Polymarket's spec
 const AUTH_TYPES  = {
   ClobAuth: [
     { name: 'address',   type: 'address' },
