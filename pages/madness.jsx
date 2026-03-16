@@ -375,14 +375,14 @@ export default function MadnessPage() {
         <main style={{ maxWidth:1200, margin:'0 auto', padding:'1.5rem 1rem 4rem' }}>
 
           {/* First Four */}
-          <div style={{ marginBottom:'2rem' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:'0.85rem' }}>
+          <div style={{ marginBottom:'2rem', maxWidth:900, margin:'0 auto 2rem' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:'0.85rem' }}>
               <span style={{ fontSize:'1.1rem' }}>⚡</span>
               <h2 style={{ fontSize:'0.85rem', fontWeight:900, margin:0, color:'#fbbf24',
                 letterSpacing:'0.1em', textTransform:'uppercase' }}>Play-In Games</h2>
               <span style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.3)' }}>Dayton · Mar 17–18</span>
             </div>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(210px,1fr))', gap:10 }}>
+            <div className="ff-grid" style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:10 }}>
               {FIRST_FOUR.map((g,i) => <FirstFourCard key={i} game={g} odds={odds} />)}
             </div>
           </div>
@@ -435,6 +435,9 @@ export default function MadnessPage() {
         @keyframes shimmer {
           0%   { background-position: 0% center; }
           100% { background-position: 300% center; }
+        }
+        @media (min-width: 640px) {
+          .ff-grid { grid-template-columns: repeat(4,1fr) !important; }
         }
       `}</style>
     </>
