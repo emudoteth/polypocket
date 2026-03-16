@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 
-// EIP-712 typed data for Polymarket L1 auth (derive API key)
-const AUTH_DOMAIN = { name: 'ClobAuthDomain', version: '1' }; // no chainId — Polymarket's spec
+const AUTH_DOMAIN = { name: 'ClobAuthDomain', version: '1' }; // no chainId per Polymarket spec
 const AUTH_TYPES  = {
   ClobAuth: [
     { name: 'address',   type: 'address' },
@@ -12,7 +11,7 @@ const AUTH_TYPES  = {
 };
 
 export function usePolyAuth(wallet) {
-  const [creds,   setCreds]   = useState(null);  // { apiKey, secret, passphrase }
+  const [creds,   setCreds]   = useState(null);
   const [status,  setStatus]  = useState('idle'); // idle | signing | loading | ready | error
   const [error,   setError]   = useState(null);
 
@@ -26,15 +25,8 @@ export function usePolyAuth(wallet) {
     } catch { setStatus('idle'); }
   }, [wallet?.address]);
 
-  // Step 1: user opens polymarket.com to accept ToS (first-time only)
-  function openPolymarketTos() {
-    window.open('https://polymarket.com', '_blank');
-    setStatus('tos-pending');
-  }
-
-  // Step 2: sign + derive API key
   async function authorize() {
-    if (!wallet?.signer || !wallet?.address) return;
+    if (!wallet?.signer || !wallet?.address) return { success: false, error: 'Wallet not connected' };
     setStatus('signing');
     setError(null);
     try {
@@ -49,19 +41,27 @@ export function usePolyAuth(wallet) {
       });
 
       setStatus('loading');
-      // Try derive-api-key first, fall back to POST api-key
+
+      // Try GET derive-api-key first, then POST api-key as fallback
       let data, ok;
-      for (const method of ['GET', 'POST']) {
+      for (const httpMethod of ['GET', 'POST']) {
         const r = await fetch('/api/poly-auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ address: wallet.address, signature: sig, timestamp, nonce, httpMethod: method }),
+          body: JSON.stringify({ address: wallet.address, signature: sig, timestamp, nonce, httpMethod }),
         });
         data = await r.json();
         ok = r.ok && data.apiKey;
         if (ok) break;
       }
-      if (!ok) throw new Error(data?.error || 'Could not get API key. Make sure you have accepted Polymarket\'s Terms of Service at polymarket.com.');
+
+      if (!ok) {
+        const msg = data?.error?.toLowerCase?.() || '';
+        const needsAccount = msg.includes('derive') || msg.includes('api key') || msg.includes('not found');
+        throw new Error(needsAccount
+          ? 'No Polymarket account found for this wallet. Visit polymarket.com, connect your wallet and accept their Terms of Service, then come back and try again.'
+          : (data?.error || 'Authorization failed'));
+      }
 
       const newCreds = { ...data, address: wallet.address };
       setCreds(newCreds);
@@ -76,11 +76,14 @@ export function usePolyAuth(wallet) {
   }
 
   function logout() {
-    if (wallet?.address)
-      localStorage.removeItem(`poly_creds_${wallet.address}`);
+    if (wallet?.address) localStorage.removeItem(`poly_creds_${wallet.address}`);
     setCreds(null);
     setStatus('idle');
+    setError(null);
   }
 
-  return { creds, status, error, authorize, logout };
+  // Retry after error
+  function retry() { setStatus('idle'); setError(null); }
+
+  return { creds, status, error, authorize, logout, retry };
 }
