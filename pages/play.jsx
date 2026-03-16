@@ -7,6 +7,7 @@ import { usePolyAuth } from '../hooks/usePolyAuth';
 import { ethers } from 'ethers';
 
 // ── Constants ────────────────────────────────────────────────────────────────
+const COMMISSION = 0.50; // $0.50 PolyPocket protocol fee
 const CARD_H  = 68;
 const CARD_G  = 6;
 const SLOT    = CARD_H + CARD_G;
@@ -129,6 +130,245 @@ function useOdds() {
       }).catch(()=>{});
   },[]);
   return odds;
+}
+
+
+// ── ChampionModal ─────────────────────────────────────────────────────────────
+function ChampionModal({ wallet, polyAuth, onClose }) {
+  const [teams,    setTeams]    = useState(null);
+  const [search,   setSearch]   = useState('');
+  const [selected, setSelected] = useState(null);
+  const [amount,   setAmount]   = useState('10');
+  const [step,     setStep]     = useState('pick'); // pick | bet | signing | submitting | done | error
+  const [txMsg,    setTxMsg]    = useState('');
+  const [tokenId,  setTokenId]  = useState(null);
+  const [result,   setResult]   = useState(null);
+
+  useEffect(() => {
+    fetch('/api/champion-markets')
+      .then(r=>r.json())
+      .then(d=>{ if(d.teams) setTeams(d.teams); })
+      .catch(()=>{});
+  }, []);
+
+  // When team selected, fetch its Yes tokenId
+  useEffect(() => {
+    if (!selected) return;
+    setTokenId(null);
+    fetch(`/api/poly-tokens?slug=${selected.conditionId || '2026-ncaa-tournament-winner'}`)
+      .then(r=>r.json())
+      .then(d=>{
+        // Find Yes token
+        const yes = d.tokens?.find(t => /^yes$/i.test(t.outcome));
+        if (yes) setTokenId(yes.tokenId);
+        else {
+          // Fallback: fetch by conditionId directly
+          fetch(`/api/poly-tokens?conditionId=${selected.conditionId}`)
+            .then(r2=>r2.json())
+            .then(d2=>{ const y=d2.tokens?.find(t=>/^yes$/i.test(t.outcome)); if(y) setTokenId(y.tokenId); })
+            .catch(()=>{});
+        }
+      }).catch(()=>{});
+  }, [selected]);
+
+  const filtered = (teams||[]).filter(t =>
+    !search || t.team.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const price = selected?.yesPrice || 0;
+  const potentialWin = price ? ((parseFloat(amount||0)) / price).toFixed(2) : '—';
+  const profit = price ? (parseFloat(potentialWin) - parseFloat(amount||0) - COMMISSION).toFixed(2) : '—';
+
+  async function placeBet() {
+    if (!wallet?.address || !wallet?.signer || !selected || !tokenId) return;
+    setStep('signing');
+    setTxMsg('');
+
+    try {
+      let activeCreds = polyAuth.creds;
+      if (polyAuth.status !== 'ready') {
+        setTxMsg('Authorize Polymarket — sign the message in your wallet…');
+        const authResult = await polyAuth.authorize();
+        if (!authResult?.success) throw new Error(authResult?.error || 'Authorization failed');
+        activeCreds = authResult.creds;
+      }
+
+      // Build order
+      setTxMsg('Building order…');
+      const buildR = await fetch('/api/poly-build-order', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ maker:wallet.address, tokenId, price, size:parseFloat(amount), side:'BUY' }),
+      });
+      const { order, typedData } = await buildR.json();
+
+      // Sign
+      setTxMsg('Sign the order in your wallet…');
+      const sig = await wallet.provider.send('eth_signTypedData_v4', [wallet.address, JSON.stringify(typedData)]);
+
+      // Submit
+      setStep('submitting');
+      setTxMsg('Submitting to Polymarket…');
+      const creds = activeCreds || polyAuth.creds;
+      const submitR = await fetch('/api/poly-submit', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ order, signature:sig, apiKey:creds.apiKey, secret:creds.secret, passphrase:creds.passphrase }),
+      });
+      const data = await submitR.json();
+      if (!submitR.ok) throw new Error(data.error || JSON.stringify(data));
+      setResult(data); setStep('done');
+    } catch(e) { setTxMsg(e.message); setStep('error'); }
+  }
+
+  const busy = ['signing','submitting'].includes(step);
+
+  return (
+    <div style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.8)',
+      backdropFilter:'blur(6px)',display:'flex',alignItems:'center',justifyContent:'center',padding:'1rem'}}
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:'#0f0d1a',border:'1px solid #fbbf2444',borderRadius:16,
+        width:'100%',maxWidth:420,maxHeight:'85vh',display:'flex',flexDirection:'column',
+        boxShadow:'0 0 60px rgba(251,191,36,0.15)'}}>
+
+        {/* Header */}
+        <div style={{padding:'1.25rem 1.25rem 0.75rem',borderBottom:'1px solid rgba(255,255,255,0.08)',
+          display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
+          <div>
+            <div style={{fontSize:'0.65rem',fontWeight:800,color:'#fbbf24',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:3}}>🏆 Bet the Champion</div>
+            <div style={{fontSize:'0.85rem',fontWeight:700,color:'white'}}>
+              {selected ? `${selected.team}` : '2026 Tournament Winner'}
+            </div>
+          </div>
+          <button onClick={onClose} style={{background:'none',border:'none',color:'rgba(255,255,255,0.4)',cursor:'pointer',fontSize:'1.2rem',padding:'0 0 0 8px',lineHeight:1}}>✕</button>
+        </div>
+
+        {step==='done' ? (
+          <div style={{padding:'2rem',textAlign:'center'}}>
+            <div style={{fontSize:'2.5rem',marginBottom:'0.5rem'}}>✅</div>
+            <div style={{fontWeight:800,color:'white',marginBottom:'0.35rem'}}>Order Submitted!</div>
+            <div style={{fontSize:'0.75rem',color:'rgba(255,255,255,0.5)',marginBottom:'1.25rem'}}>
+              ${amount} on {selected.team} @ {(price*100).toFixed(1)}¢
+            </div>
+            <button onClick={onClose} style={{...btnStyle('#fbbf24'),color:'#1a0800',width:'100%'}}>Done</button>
+          </div>
+        ) : (
+          <>
+            {/* Team picker or bet UI */}
+            {!selected ? (
+              <div style={{display:'flex',flexDirection:'column',flex:1,overflow:'hidden'}}>
+                <div style={{padding:'0.75rem 1.25rem',flexShrink:0}}>
+                  <input placeholder="Search team…" value={search} onChange={e=>setSearch(e.target.value)}
+                    style={{width:'100%',boxSizing:'border-box',background:'rgba(255,255,255,0.07)',
+                      border:'1px solid rgba(255,255,255,0.12)',borderRadius:8,padding:'0.5rem 0.75rem',
+                      color:'white',fontSize:'0.85rem',fontFamily:'inherit',outline:'none'}}/>
+                </div>
+                {!teams ? (
+                  <div style={{padding:'2rem',textAlign:'center',color:'rgba(255,255,255,0.3)',fontSize:'0.78rem'}}>⏳ Loading teams…</div>
+                ) : (
+                  <div style={{overflowY:'auto',flex:1,padding:'0 0.75rem 0.75rem'}}>
+                    {filtered.map((t,i)=>(
+                      <button key={i} onClick={()=>setSelected(t)} style={{
+                        display:'flex',alignItems:'center',justifyContent:'space-between',
+                        width:'100%',padding:'0.55rem 0.75rem',marginBottom:4,
+                        background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.08)',
+                        borderRadius:8,cursor:'pointer',fontFamily:'inherit',
+                      }}
+                      onMouseEnter={e=>e.currentTarget.style.background='rgba(251,191,36,0.12)'}
+                      onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.05)'}>
+                        <span style={{fontWeight:600,color:'white',fontSize:'0.82rem'}}>{t.team}</span>
+                        <span style={{fontWeight:800,color:'#fbbf24',fontSize:'0.82rem'}}>{t.yesPct}¢</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{padding:'1.25rem',overflowY:'auto'}}>
+                <button onClick={()=>{setSelected(null);setTokenId(null);}} style={{
+                  background:'rgba(255,255,255,0.07)',border:'none',borderRadius:6,
+                  color:'rgba(255,255,255,0.5)',cursor:'pointer',fontSize:'0.7rem',
+                  padding:'3px 10px',marginBottom:'1rem',fontFamily:'inherit'}}>← Change team</button>
+
+                {/* Amount */}
+                <div style={{marginBottom:'0.85rem'}}>
+                  <div style={{fontSize:'0.65rem',fontWeight:700,color:'rgba(255,255,255,0.4)',marginBottom:'0.5rem',textTransform:'uppercase',letterSpacing:'0.05em'}}>Amount (USDC)</div>
+                  <div style={{position:'relative'}}>
+                    <span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',color:'rgba(255,255,255,0.4)'}}>$</span>
+                    <input type="number" min="5" step="1" value={amount} onChange={e=>!busy&&setAmount(e.target.value)}
+                      style={{width:'100%',boxSizing:'border-box',paddingLeft:28,paddingRight:12,
+                        paddingTop:10,paddingBottom:10,borderRadius:8,
+                        background:'rgba(255,255,255,0.07)',border:'1px solid #fbbf2444',
+                        color:'white',fontSize:'1rem',fontWeight:700,fontFamily:'inherit',outline:'none'}}/>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'flex-end',gap:6,marginTop:6}}>
+                    {['5','10','25','50'].map(v=>(
+                      <button key={v} onClick={()=>!busy&&setAmount(v)}
+                        style={{background:'rgba(255,255,255,0.07)',border:'none',borderRadius:4,
+                          padding:'1px 7px',color:'rgba(255,255,255,0.5)',cursor:'pointer',
+                          fontSize:'0.65rem',fontFamily:'inherit'}}>${v}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Payout */}
+                <div style={{background:'rgba(255,255,255,0.04)',borderRadius:8,
+                  padding:'0.65rem 0.85rem',marginBottom:'0.85rem',
+                  border:'1px solid rgba(255,255,255,0.07)'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.7rem',marginBottom:4}}>
+                    <span style={{color:'rgba(255,255,255,0.4)'}}>Win probability</span>
+                    <span style={{color:'white',fontWeight:700}}>{(price*100).toFixed(1)}¢</span>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.7rem',marginBottom:4}}>
+                    <span style={{color:'rgba(255,255,255,0.4)'}}>Potential payout</span>
+                    <span style={{color:'white',fontWeight:700}}>${potentialWin}</span>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.7rem',marginBottom:4}}>
+                    <span style={{color:'rgba(255,255,255,0.4)'}}>PolyPocket fee</span>
+                    <span style={{color:'rgba(255,255,255,0.5)',fontWeight:600}}>$0.50</span>
+                  </div>
+                  <div style={{height:1,background:'rgba(255,255,255,0.07)',margin:'4px 0'}}/>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.7rem'}}>
+                    <span style={{color:'rgba(255,255,255,0.4)'}}>Profit if win</span>
+                    <span style={{color:'#22c55e',fontWeight:800}}>+${profit}</span>
+                  </div>
+                </div>
+
+                {/* Status */}
+                {(step==='error'||busy) && (
+                  <div style={{fontSize:'0.7rem',padding:'0.6rem 0.75rem',borderRadius:8,marginBottom:'0.85rem',
+                    background:step==='error'?'rgba(239,68,68,0.15)':'rgba(255,255,255,0.06)',
+                    border:`1px solid ${step==='error'?'rgba(239,68,68,0.4)':'rgba(255,255,255,0.1)'}`,
+                    color:step==='error'?'#fca5a5':'rgba(255,255,255,0.6)'}}>
+                    {busy&&<span style={{marginRight:6}}>⏳</span>}{txMsg}
+                  </div>
+                )}
+
+                {!tokenId && selected && (
+                  <div style={{fontSize:'0.68rem',color:'rgba(255,255,255,0.4)',textAlign:'center',marginBottom:'0.65rem'}}>⏳ Loading market data…</div>
+                )}
+
+                {!wallet?.address ? (
+                  <div style={{textAlign:'center',fontSize:'0.78rem',color:'rgba(255,255,255,0.4)',padding:'0.75rem 0'}}>Connect your wallet to bet</div>
+                ) : (
+                  <button onClick={placeBet}
+                    disabled={busy||!amount||parseFloat(amount)<5||!tokenId}
+                    style={{...btnStyle('#fbbf24'),color:'#1a0800',width:'100%',
+                      opacity:busy||!amount||parseFloat(amount)<5||!tokenId?0.5:1,
+                      cursor:busy||!amount||parseFloat(amount)<5||!tokenId?'not-allowed':'pointer'}}>
+                    {busy ? txMsg.split('…')[0]+'…' :
+                      polyAuth.status!=='ready' ? '🔑 Authorize & Bet' :
+                      `Bet $${amount} on ${selected.team}`}
+                  </button>
+                )}
+                <div style={{textAlign:'center',fontSize:'0.6rem',color:'rgba(255,255,255,0.2)',marginTop:'0.75rem'}}>
+                  Non-custodial · Polygon · USDC
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ── BetModal ──────────────────────────────────────────────────────────────────
@@ -558,8 +798,9 @@ function RegionBracket({ name, games, odds, onBet }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function PlayPage() {
-  const [tab,      setTab]      = useState('EAST');
-  const [betGame,  setBetGame]  = useState(null);
+  const [tab,           setTab]           = useState('EAST');
+  const [betGame,       setBetGame]       = useState(null);
+  const [champOpen,     setChampOpen]     = useState(false);
   const odds   = useOdds();
   const wallet = useWallet();
   const polyAuth = usePolyAuth(wallet);
@@ -622,14 +863,15 @@ export default function PlayPage() {
             Non-custodial · Polygon · USDC · Orders via Polymarket CLOB
           </div>
           <br/>
-          <a href="https://polymarket.com/event/2026-ncaa-tournament-winner" target="_blank" rel="noopener noreferrer"
+          <button onClick={()=>setChampOpen(true)}
             style={{display:'inline-flex',alignItems:'center',gap:'0.5rem',
               background:'linear-gradient(135deg,#f97316,#fbbf24)',
               color:'#1a0800',fontWeight:800,fontSize:'0.9rem',
-              padding:'0.7rem 1.5rem',borderRadius:99,textDecoration:'none',
+              padding:'0.7rem 1.5rem',borderRadius:99,border:'none',
+              cursor:'pointer',fontFamily:'inherit',
               boxShadow:'0 4px 24px rgba(249,115,22,0.4)'}}>
-            🏆 Bet the Champion ↗
-          </a>
+            🏆 Bet the Champion
+          </button>
         </div>
 
         <main style={{maxWidth:1200,margin:'0 auto',padding:'1.5rem 1rem 4rem'}}>
@@ -650,6 +892,55 @@ export default function PlayPage() {
               Click <strong>🔑 Authorize</strong> in the top bar — sign one gasless message to connect your wallet to Polymarket.
             </div>
           )}
+
+          {/* Play-In Games */}
+          <div style={{maxWidth:900,margin:'0 auto 2rem'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:'0.85rem'}}>
+              <span style={{fontSize:'1.1rem'}}>⚡</span>
+              <h2 style={{fontSize:'0.85rem',fontWeight:900,margin:0,color:'#fbbf24',letterSpacing:'0.1em',textTransform:'uppercase'}}>Play-In Games</h2>
+              <span style={{fontSize:'0.65rem',color:'rgba(255,255,255,0.3)'}}>Dayton · Mar 17–18</span>
+            </div>
+            <div className="ff-grid" style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10}}>
+              {FIRST_FOUR.map((g,i)=>{
+                const o=odds[g.slug];
+                const [fp1,fp2]=getProbs(g,o);
+                const fav=o?(fp1>=fp2?0:1):-1;
+                const color=REGION_COLOR[g.region];
+                return(
+                  <div key={i} onClick={()=>o&&setBetGame({...g,region:g.region})} style={{
+                    background:o?'rgba(255,255,255,0.06)':'rgba(255,255,255,0.03)',
+                    border:`1px solid ${o?color+'44':'rgba(255,255,255,0.08)'}`,
+                    borderRadius:10,overflow:'hidden',cursor:o?'pointer':'default',
+                    boxShadow:o?`0 0 12px ${color}22`:'none',
+                  }}
+                  onMouseEnter={e=>{if(o)e.currentTarget.style.background='rgba(255,255,255,0.12)'}}
+                  onMouseLeave={e=>{if(o)e.currentTarget.style.background='rgba(255,255,255,0.06)'}}>
+                    <div style={{padding:'5px 10px 4px',borderBottom:`1px solid ${color}33`,
+                      display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <span style={{fontSize:'0.6rem',fontWeight:800,color,letterSpacing:'0.08em',textTransform:'uppercase'}}>{g.region}</span>
+                      <span style={{fontSize:'0.58rem',color:'rgba(255,255,255,0.35)'}}>{g.date}</span>
+                    </div>
+                    {g.teams.map((team,ti)=>(
+                      <div key={ti} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',
+                        borderBottom:ti===0?'1px solid rgba(255,255,255,0.06)':'none',
+                        background:fav===ti&&o?`${color}18`:'transparent'}}>
+                        <span style={{width:18,height:18,borderRadius:4,flexShrink:0,
+                          background:fav===ti&&o?color+'44':'rgba(255,255,255,0.07)',
+                          display:'flex',alignItems:'center',justifyContent:'center',
+                          fontSize:'0.55rem',fontWeight:800,color:fav===ti&&o?color:'rgba(255,255,255,0.4)'}}>{team.seed}</span>
+                        <span style={{flex:1,fontSize:'0.78rem',fontWeight:fav===ti&&o?700:400,
+                          color:fav===ti&&o?'white':'rgba(255,255,255,0.7)'}}>{team.name}</span>
+                        {o&&<span style={{fontSize:'0.7rem',fontWeight:800,color:fav===ti?color:'rgba(255,255,255,0.3)'}}>{ti===0?fp1:fp2}¢</span>}
+                      </div>
+                    ))}
+                    {o&&<div style={{padding:'5px 10px',textAlign:'right'}}>
+                      <span style={{fontSize:'0.6rem',fontWeight:700,color,background:`${color}20`,padding:'2px 8px',borderRadius:99}}>Bet ↗</span>
+                    </div>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
           {/* Region tabs */}
           <div style={{display:'flex',gap:6,marginBottom:'1.25rem',overflowX:'auto',paddingBottom:4}}>
@@ -685,6 +976,11 @@ export default function PlayPage() {
           </div>
         </main>
       </div>
+
+      {/* Champion modal */}
+      {champOpen && (
+        <ChampionModal wallet={wallet} polyAuth={polyAuth} onClose={()=>setChampOpen(false)}/>
+      )}
 
       {/* Bet modal */}
       {betGame && (
