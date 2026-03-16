@@ -139,21 +139,28 @@ function BetModal({ game, odds, wallet, polyAuth, onClose }) {
   const [amount,   setAmount]   = useState('10');
   const [step,     setStep]     = useState('idle');  // idle|approving|signing-auth|signing-order|submitting|done|error
   const [txMsg,    setTxMsg]    = useState('');
-  const [tokens,   setTokens]   = useState(null);
-  const [result,   setResult]   = useState(null);
+  const [tokens,      setTokens]      = useState(null);
+  const [tokensError, setTokensError] = useState(null);
+  const [result,      setResult]      = useState(null);
 
   const selectedTeam = game.teams[selectedIdx];
   const selectedProb = selectedIdx===0 ? p1 : p2;
   const potentialWin = selectedProb ? (parseFloat(amount||0) / (selectedProb/100)).toFixed(2) : '—';
   const profit       = selectedProb ? (parseFloat(potentialWin||0) - parseFloat(amount||0)).toFixed(2) : '—';
 
-  // Fetch token IDs on mount
-  useEffect(() => {
+  // Fetch token IDs on mount — with retry
+  const fetchTokens = useCallback(() => {
+    setTokensError(null);
     fetch(`/api/poly-tokens?slug=${game.slug}`)
       .then(r=>r.json())
-      .then(d => { if(d.tokens) setTokens(d); })
-      .catch(()=>{});
+      .then(d => {
+        if(d.tokens?.length) setTokens(d);
+        else setTokensError(d.error || 'No token data returned');
+      })
+      .catch(e => setTokensError(e.message || 'Network error fetching market data'));
   }, [game.slug]);
+
+  useEffect(() => { fetchTokens(); }, [fetchTokens]);
 
   async function checkApproval() {
     if (!wallet?.signer) return false;
@@ -387,6 +394,22 @@ function BetModal({ game, odds, wallet, polyAuth, onClose }) {
             )}
 
             {/* CTA button */}
+            {/* Token loading state */}
+            {!tokens && !tokensError && (
+              <div style={{ fontSize:'0.68rem', color:'rgba(255,255,255,0.4)', textAlign:'center',
+                marginBottom:'0.65rem' }}>⏳ Loading market data…</div>
+            )}
+            {tokensError && (
+              <div style={{ fontSize:'0.68rem', color:'#fca5a5', marginBottom:'0.65rem',
+                display:'flex', alignItems:'center', justifyContent:'space-between',
+                background:'rgba(239,68,68,0.1)', borderRadius:8, padding:'0.5rem 0.75rem' }}>
+                <span>⚠️ {tokensError}</span>
+                <button onClick={fetchTokens}
+                  style={{ background:'none', border:'1px solid rgba(239,68,68,0.5)',
+                    borderRadius:6, color:'#fca5a5', cursor:'pointer', fontSize:'0.65rem',
+                    padding:'2px 8px', marginLeft:8, fontFamily:'inherit' }}>Retry</button>
+              </div>
+            )}
             {!wallet?.address ? (
               <div style={{ textAlign:'center', fontSize:'0.78rem', color:'rgba(255,255,255,0.4)',
                 padding:'0.75rem 0' }}>
@@ -395,12 +418,12 @@ function BetModal({ game, odds, wallet, polyAuth, onClose }) {
             ) : (
               <button
                 onClick={placeBet}
-                disabled={busy || !amount || parseFloat(amount)<5}
+                disabled={busy || !amount || parseFloat(amount)<5 || (!tokens && !tokensError)}
                 style={{
                   ...btnStyle(color),
                   width:'100%',
-                  opacity: busy || !amount || parseFloat(amount)<5 ? 0.5 : 1,
-                  cursor:  busy || !amount || parseFloat(amount)<5 ? 'not-allowed' : 'pointer',
+                  opacity: busy || !amount || parseFloat(amount)<5 || (!tokens && !tokensError) ? 0.5 : 1,
+                  cursor:  busy || !amount || parseFloat(amount)<5 || (!tokens && !tokensError) ? 'not-allowed' : 'pointer',
                 }}
               >
                 {busy ? txMsg.split('…')[0] + '…' :
