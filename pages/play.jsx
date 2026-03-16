@@ -835,6 +835,9 @@ export default function PlayPage() {
         </Link>
         <div style={{display:'flex',alignItems:'center',gap:'0.75rem'}}>
           <Link href="/madness" style={{fontSize:'0.78rem',fontWeight:600,color:'rgba(255,255,255,0.4)',textDecoration:'none'}}>Read Only</Link>
+            <Link href="/swap" style={{fontSize:'0.72rem',fontWeight:700,color:'#fbbf24',
+              textDecoration:'none',padding:'3px 9px',borderRadius:6,
+              border:'1px solid rgba(251,191,36,0.3)',background:'rgba(251,191,36,0.07)'}}>💱 Get USDC.e</Link>
           {polyAuth.status==='ready'
             ? <span style={{fontSize:'0.72rem',fontWeight:700,color:'#22c55e',background:'rgba(34,197,94,0.15)',padding:'3px 10px',borderRadius:99}}>🔑 Authorized</span>
             : wallet?.address
