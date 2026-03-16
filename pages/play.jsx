@@ -152,7 +152,7 @@ function BetModal({ game, odds, wallet, polyAuth, onClose }) {
   const profit       = selectedProb ? (parseFloat(potentialWin||0) - parseFloat(amount||0)).toFixed(2) : '—';
 
   // Fetch token IDs on mount — with retry
-  const fetchTokens = useCallback(() => {
+  function fetchTokens() {
     setTokensError(null);
     fetch(`/api/poly-tokens?slug=${game.slug}`)
       .then(r=>r.json())
@@ -161,9 +161,10 @@ function BetModal({ game, odds, wallet, polyAuth, onClose }) {
         else setTokensError(d.error || 'No token data returned');
       })
       .catch(e => setTokensError(e.message || 'Network error fetching market data'));
-  }, [game.slug]);
+  }
 
-  useEffect(() => { fetchTokens(); }, [fetchTokens]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchTokens(); }, [game.slug]);
 
   async function checkApproval() {
     if (!wallet?.signer) return false;
