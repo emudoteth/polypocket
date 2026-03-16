@@ -261,7 +261,17 @@ function FirstFourCard({ game, odds }) {
   const color = REGION_COLOR[game.region];
   const o = odds?.[game.slug];
   const [t1,t2] = game.teams;
-  const fav = o ? (o.t1 >= o.t2 ? 0 : 1) : -1;
+  function ffProb(team, idx) {
+    if (!o) return null;
+    const abbr = team.name.toLowerCase();
+    if (o.n1 && o.n2) {
+      if (o.n1.includes(abbr) || abbr.split(' ').some(w => w.length > 3 && o.n1.includes(w))) return o.t1;
+      if (o.n2.includes(abbr) || abbr.split(' ').some(w => w.length > 3 && o.n2.includes(w))) return o.t2;
+    }
+    return idx === 0 ? o.t1 : o.t2;
+  }
+  const fp1 = ffProb(t1,0), fp2 = ffProb(t2,1);
+  const fav = o ? (fp1 >= fp2 ? 0 : 1) : -1;
 
   return (
     <a href={poly(game.slug)} target="_blank" rel="noopener noreferrer"
@@ -292,7 +302,7 @@ function FirstFourCard({ game, odds }) {
           <span style={{ flex:1, fontSize:'0.78rem', fontWeight: fav===i && o ? 700 : 400,
             color: fav===i && o ? 'white' : 'rgba(255,255,255,0.7)' }}>{team.name}</span>
           {o && <span style={{ fontSize:'0.7rem', fontWeight:800,
-            color: fav===i ? color : 'rgba(255,255,255,0.3)' }}>{i===0?o.t1:o.t2}%</span>}
+            color: fav===i ? color : 'rgba(255,255,255,0.3)' }}>{i===0?fp1:fp2}%</span>}
         </div>
       ))}
       <div style={{ padding:'5px 10px', textAlign:'right' }}>
