@@ -19,14 +19,7 @@ function clientIp(req) {
   );
 }
 // Gets the real client IP from Next.js request headers
-function clientIp(req) {
-  return (
-    (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
-    req.headers['x-real-ip'] ||
-    req.socket?.remoteAddress ||
-    ''
-  );
-}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   const { order, signature, apiKey, secret, passphrase } = req.body || {};
