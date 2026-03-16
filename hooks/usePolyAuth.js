@@ -67,9 +67,11 @@ export function usePolyAuth(wallet) {
       setCreds(newCreds);
       setStatus('ready');
       localStorage.setItem(`poly_creds_${wallet.address}`, JSON.stringify(newCreds));
+      return { success: true, creds: newCreds };
     } catch (e) {
       setError(e.message);
       setStatus('error');
+      return { success: false, error: e.message };
     }
   }
 
