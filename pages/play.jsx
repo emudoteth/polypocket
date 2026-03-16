@@ -192,9 +192,6 @@ function BetModal({ game, odds, wallet, polyAuth, onClose }) {
       // 1. Ensure Polymarket auth — use return value, not stale state
       let activeCreds = polyAuth.creds;
       if (polyAuth.status !== 'ready') {
-        if (polyAuth.status === 'tos-pending') {
-          throw new Error('Click "✅ I\'ve accepted — Sign" in the top bar to finish authorization first.');
-        }
         setStep('signing-auth');
         setTxMsg('Authorizing with Polymarket — sign the message in your wallet…');
         const authResult = await polyAuth.authorize();
@@ -583,17 +580,21 @@ export default function PlayPage() {
           <Link href="/madness" style={{fontSize:'0.78rem',fontWeight:600,color:'rgba(255,255,255,0.4)',textDecoration:'none'}}>Read Only</Link>
           {polyAuth.status==='ready'
             ? <span style={{fontSize:'0.72rem',fontWeight:700,color:'#22c55e',background:'rgba(34,197,94,0.15)',padding:'3px 10px',borderRadius:99}}>🔑 Authorized</span>
-            : wallet?.address && polyAuth.status==='tos-pending'
+            : wallet?.address
               ? <button onClick={polyAuth.authorize}
-                  style={{fontSize:'0.72rem',fontWeight:700,color:'#22c55e',background:'rgba(34,197,94,0.15)',padding:'3px 10px',borderRadius:99,border:'1px solid rgba(34,197,94,0.4)',cursor:'pointer',fontFamily:'inherit'}}>
-                  ✅ I've accepted — Sign
+                  disabled={polyAuth.status==='signing'||polyAuth.status==='loading'}
+                  style={{fontSize:'0.72rem',fontWeight:700,
+                    color: polyAuth.status==='error' ? '#fca5a5' : '#fbbf24',
+                    background: polyAuth.status==='error' ? 'rgba(239,68,68,0.15)' : 'rgba(251,191,36,0.15)',
+                    padding:'3px 10px',borderRadius:99,border:'none',cursor:'pointer',fontFamily:'inherit',
+                    opacity: polyAuth.status==='signing'||polyAuth.status==='loading' ? 0.6 : 1,
+                  }}>
+                  {polyAuth.status==='signing' ? '⏳ Check wallet…'
+                    : polyAuth.status==='loading' ? '⏳ Authorizing…'
+                    : polyAuth.status==='error' ? '🔑 Retry Auth'
+                    : '🔑 Authorize'}
                 </button>
-              : wallet?.address
-                ? <button onClick={polyAuth.openPolymarketTos} disabled={polyAuth.status==='signing'||polyAuth.status==='loading'}
-                    style={{fontSize:'0.72rem',fontWeight:700,color:'#fbbf24',background:'rgba(251,191,36,0.15)',padding:'3px 10px',borderRadius:99,border:'none',cursor:'pointer',fontFamily:'inherit'}}>
-                    {polyAuth.status==='signing'||polyAuth.status==='loading' ? '⏳ Authorizing…' : '🔑 Authorize'}
-                  </button>
-                : null
+              : null
           }
           <WalletButton/>
         </div>
@@ -645,7 +646,7 @@ export default function PlayPage() {
             <div style={{background:'rgba(59,130,246,0.08)',border:'1px solid rgba(59,130,246,0.25)',
               borderRadius:10,padding:'0.75rem 1rem',marginBottom:'1.5rem',
               fontSize:'0.78rem',color:'rgba(147,197,253,0.9)',textAlign:'center'}}>
-              Click <strong>🔑 Authorize</strong> above — it will open Polymarket to accept their Terms (first time only), then sign one gasless message to connect.
+              Click <strong>🔑 Authorize</strong> in the top bar — sign one gasless message to connect your wallet to Polymarket.
             </div>
           )}
 
