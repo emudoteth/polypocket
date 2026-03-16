@@ -12,7 +12,7 @@ const POLYGON_PARAMS = {
   chainId: '0x89',
   chainName: 'Polygon Mainnet',
   nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
-  rpcUrls: ['https://polygon-rpc.com'],
+  rpcUrls: ['https://polygon-rpc.com', 'https://rpc.ankr.com/polygon', 'https://rpc-mainnet.matic.quiknode.pro'],
   blockExplorerUrls: ['https://polygonscan.com'],
 };
 
