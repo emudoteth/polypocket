@@ -161,6 +161,7 @@ export default function Home() {
           <a href="#markets" style={btnPrimary}>Browse Live Markets →</a>
           <Link href="/wheel" style={btnGhost}>🎰 Spin the Wheel</Link>
           <Link href="/madness" style={btnGhost}>🏀 March Madness</Link>
+          <Link href="/play" style={btnGhost}>🎰 Bracket Bets</Link>
           <Link href="/news" style={btnGhost}>📰 The Poly Gazette</Link>
           <a href="https://github.com/emudoteth/polypocket" target="_blank" rel="noopener" style={btnGhost}>View Source</a>
         </div>
