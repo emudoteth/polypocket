@@ -815,11 +815,17 @@ function RegionBracket({ name, games, odds, onBet }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function PlayPage() {
   const [tab,           setTab]           = useState('EAST');
+  const [geoBlocked,    setGeoBlocked]    = useState(false);
   const [betGame,       setBetGame]       = useState(null);
   const [champOpen,     setChampOpen]     = useState(false);
+  const [geoBlocked,    setGeoBlocked]    = useState(false);
   const odds   = useOdds();
   const wallet = useWallet();
   const polyAuth = usePolyAuth(wallet);
+
+  useEffect(() => {
+    fetch('/api/geocheck').then(r=>r.json()).then(d=>{ if(d.blocked) setGeoBlocked(true); }).catch(()=>{});
+  }, []);
 
   return(
     <>
@@ -912,7 +918,22 @@ export default function PlayPage() {
             </div>
           )}
 
-          {/* Play-In Games */}
+          {/* Geoblock banner */}
+      {geoBlocked && (
+        <div style={{background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.4)',
+          borderRadius:10,padding:'0.75rem 1rem',margin:'1rem 1rem 0',
+          display:'flex',alignItems:'center',gap:'0.75rem',flexWrap:'wrap'}}>
+          <span style={{fontSize:'1.1rem'}}>🌍</span>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:700,color:'#fca5a5',fontSize:'0.82rem'}}>Trading not available in your region</div>
+            <div style={{color:'rgba(255,255,255,0.45)',fontSize:'0.72rem',marginTop:2}}>
+              Polymarket restricts order placement from your location. You can still browse markets and odds.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Play-In Games */}
           <div style={{maxWidth:900,margin:'0 auto 2rem'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:'0.85rem'}}>
               <span style={{fontSize:'1.1rem'}}>⚡</span>
