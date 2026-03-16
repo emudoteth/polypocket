@@ -43,6 +43,7 @@ export function useWallet() {
       setSigner(s);
       setAddress(addr);
       setChainId(net.chainId);
+      setProviderRef(provider);
     } catch (e) {
       setError(e.message || 'Connection rejected');
     } finally {
@@ -101,6 +102,5 @@ export function useWallet() {
     };
   }, [connect, disconnect]);
 
-  return { address, chainId, signer, isConnected, onPolygon, connecting, error, connect, disconnect, switchToPolygon };
+  return { address, chainId, signer, provider: providerRef, isConnected, onPolygon, connecting, error, connect, disconnect, switchToPolygon };
 }
-
