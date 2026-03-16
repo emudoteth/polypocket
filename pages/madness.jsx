@@ -112,7 +112,10 @@ function useOdds() {
         const pj = (s,fb) => { try{return JSON.parse(s||'null')??fb}catch{return fb} };
         const m = {};
         data.forEach(e => {
-          const mk = e.markets?.[0];
+          const mk = e.markets?.find(mk2 => {
+            const n2 = pj(mk2.outcomes, []);
+            return n2.length === 2 && !n2.some(o => /^(over|under|yes|no)$/i.test((o||'').trim()));
+          }) || e.markets?.[0];
           if (!mk || !e.slug) return;
           const p = pj(mk.outcomePrices,[]);
           const n = pj(mk.outcomes,[]);
