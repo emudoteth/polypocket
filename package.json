@@ -14,6 +14,6 @@
     "ethers": "^5.7.2",
     "@polymarket/clob-client": "^4.4.1",
     "recharts": "2.12.2",
-    "@cowprotocol/widget-lib": "^2.5.0"
+    "@cowprotocol/widget-lib": "^2.0.0"
   }
 }
