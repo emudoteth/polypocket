@@ -7,7 +7,8 @@ import { usePolyAuth } from '../hooks/usePolyAuth';
 import { ethers } from 'ethers';
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const COMMISSION = 0.50; // $0.50 PolyPocket protocol fee
+const COMMISSION     = 0.50;
+const FEE_ADDRESS    = '0x2bA225e8a27B2B75e22c647E6e373ac051413f95';
 const CARD_H  = 68;
 const CARD_G  = 6;
 const SLOT    = CARD_H + CARD_G;
@@ -192,6 +193,13 @@ function ChampionModal({ wallet, polyAuth, onClose }) {
         if (!authResult?.success) throw new Error(authResult?.error || 'Authorization failed');
         activeCreds = authResult.creds;
       }
+
+      // Transfer $0.50 commission to PolyPocket fee address
+      setTxMsg('Sending $0.50 PolyPocket fee — confirm in wallet…');
+      const USDC_ABI_MIN = ['function approve(address,uint256) returns (bool)', 'function transfer(address,uint256) returns (bool)', 'function allowance(address,address) view returns (uint256)'];
+      const usdcFee = new ethers.Contract('0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174', USDC_ABI_MIN, wallet.signer);
+      const feeTx = await usdcFee.transfer(FEE_ADDRESS, ethers.utils.parseUnits('0.5', 6));
+      await feeTx.wait(1);
 
       // Build order
       setTxMsg('Building order…');
@@ -447,6 +455,13 @@ function BetModal({ game, odds, wallet, polyAuth, onClose }) {
       if (!approved) {
         await approveUSDC();
       }
+
+      // 2b. Transfer $0.50 PolyPocket commission to fee address
+      setStep('approving');
+      setTxMsg('Sending $0.50 PolyPocket fee — confirm in wallet…');
+      const usdcFee2 = new ethers.Contract(USDC_ADDR, USDC_ABI, wallet.signer);
+      const feeTx = await usdcFee2.transfer(FEE_ADDRESS, ethers.utils.parseUnits('0.5', 6));
+      await feeTx.wait(1);
 
       // 3. Find the token ID for selected outcome
       if (!tokens?.tokens?.length) throw new Error('Token IDs not loaded yet — try again');
