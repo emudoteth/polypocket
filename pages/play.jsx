@@ -818,8 +818,7 @@ export default function PlayPage() {
   const [geoBlocked,    setGeoBlocked]    = useState(false);
   const [betGame,       setBetGame]       = useState(null);
   const [champOpen,     setChampOpen]     = useState(false);
-  const [geoBlocked,    setGeoBlocked]    = useState(false);
-  const odds   = useOdds();
+    const odds   = useOdds();
   const wallet = useWallet();
   const polyAuth = usePolyAuth(wallet);
 
